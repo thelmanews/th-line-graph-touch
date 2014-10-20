@@ -1,0 +1,313 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../th-d3-chart/th-d3-chart.html">
+
+<!--
+Element providing solution to no problem in particular.
+
+##### Example
+
+    <th-line-graph-touch></th-line-graph-touch>
+
+@element th-line-graph-touch
+@blurb Element providing solution to no problem in particular.
+@status alpha
+@homepage http://polymerlabs.github.io/th-line-graph-touch
+-->
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="lineStyle fillArea animateStyle dateType textColor yAxisMax yAxisMin">
+
+  <template>
+    <core-style ref="theme"> </core-style>
+    <style>
+     .xLabel {
+        font-size: 0.7em;
+        font-weight: 300;
+      }
+    </style>
+
+    <svg id="chart"></svg> 
+    <div id="info"></div>   
+  
+  </template>
+
+  <script>
+    // TODO
+
+    // setup structure from other line graph
+    // make it work for multiple lines
+    // make points touchable / draggable
+    // line raises from the bottom, and a marker appears on the first dot. it slides through the graph, displaying the number in the back changing. as soon as it's touched, it stops. when it stops at a point, it pulses.
+
+
+
+    Polymer({
+      chartData: [
+            {'label': 'December 3, 2011', 'value': 104, 'display_value': '$104'},
+            {'label': 'March 30, 2012', 'value': 108, 'display_value': '$108'},
+            {'label': 'August 21, 2013', 'value': 107, 'display_value': '$107'},
+            {'label': 'September 21, 2014', 'value': 107, 'display_value': '$107'},
+            {'label': 'January 1, 2016', 'value': 112, 'display_value': '$112'}
+          ],
+      fillArea: false,
+      init: function() {
+        var self = this;
+
+        // Set up dimensions
+        self.dims = self.setupDimensions(self);
+        self.dims.margin.right = 10; 
+        self.dims.margin.left = 15;
+        self.dims.width -= self.dims.margin.left + self.dims.margin.right;
+        
+        // Set scales
+        self._scaleBuilder();
+
+        // Setup elements and sizes
+        self._setupElements();
+        self._setElementSizes();
+
+      },
+      _scaleBuilder: function(){
+        var self = this;
+        
+        // Find highest and lowest values
+        self.maxValue = self.yAxisMax != "" && (!isNaN(parseInt(self.yAxisMax))) ? self.yAxisMax : self.getBoundaryValue(self, "value", d3.max);
+        self.minValue = self.yAxisMin != "" && (!isNaN(parseInt(self.yAxisMin))) ? self.yAxisMin : self.getBoundaryValue(self, "value", d3.min);
+
+        // Set y-scale
+        self.y = d3.scale.linear().domain([self.minValue, self.maxValue]).range([self.dims.margin.left, 
+                (self.dims.height-(self.dims.margin.top + self.dims.margin.bottom))]);
+
+        // Set date format
+        var DATE_FORMATS = {
+                "DD-MM-YY": "%d-%m-%y",
+                "DD-MM": "%d-%m",
+                "DD-Mth": "%d-%b",
+                "MM-YY": "%m-%y",
+                "Mth-YY": "%b-%y",
+                "YY": "\'%y",
+                "YYYY": "%Y"
+              };
+        self.dateFormat = DATE_FORMATS[self.dateType] || "%Y";
+
+        // Create date object for each label
+        self.chartData.forEach(function(d){
+          d.date = Date.parse(d.label);
+        })
+
+        // Set x-scale
+        self.x = d3.time.scale().domain(d3.extent(self.chartData, function(d){return d.date;})).range([self.dims.margin.left, self.dims.width ]);
+
+        // TODO: Expose this? 
+        self.numXticks = Math.min(5, self.chartData.length);
+        self.numYticks = 4;
+      },
+      _setupElements: function(){
+        var self = this,
+            width = self.dims.width,
+            height = self.dims.height,
+            y = self.y,
+            x = self.x,
+            g = self.g, 
+            data = self.chartData;
+
+        self.currentPos = { 
+          value: data[0].value,
+          label: data[0].label,
+          date: data[0].date
+        };
+
+        // Create chart container
+        self.svg = d3.select(self.$.chart);
+        var g = self.svg.append("g");
+        self.g = g;
+        
+        // Create x-axis
+        var xAxis = d3.svg.axis()
+          .scale(x)
+          .ticks(self.numXticks)
+          .tickFormat(d3.time.format(self.dateFormat))
+          .tickSize(0);
+
+        self.xAxis = g.append("g").attr('class', 'axis xAxis').call(xAxis).style('stroke', self.textColor);
+        
+        // Format ticks
+        g.selectAll('.tick').selectAll('line').attr('y2', 0);
+        
+        // Create x-labels
+        self.xLabels = g.selectAll('.axis').selectAll('text')
+          .attr('class', 'label no-stroke xLabel').attr('y', 8)
+          .style('fill', self.textColor);
+
+        // Add large display value
+        self.displayValue = g.append('g').append('text')
+          .attr("class", "fill-foreground")
+          .attr("opacity", 0.7)
+          .style("fill", self.textColor)
+          .style("stroke", self.textColor); // this can start as 0 and fade in after datapoint and joystick appear
+
+        // Fill area path
+        self.areaPath = g.append("path");
+
+        // Line path
+        self.linePath = g.selectAll('.data0')
+            .data(data)
+            .enter().append("path")
+            .attr("class", "data0 no-fill")
+            .attr("stroke-width", "3")
+            .style("fill", "none")
+            .style("stroke", self.color);
+
+        // Datapoints
+        self.circles = g.selectAll(".circle")
+          .data(data)
+          .enter().append("circle")
+          .attr("class", "circle data0")
+          .attr("r", 0)
+          .style("fill", self.color)
+          .style("stroke", self.textColor);
+        
+        // Tooltips
+        self.tips = g.selectAll('.tip')
+          .data(data)
+          .enter().append('text')
+          .attr('class', 'tip label fill-foreground')
+          .attr('text-anchor', 'middle')
+          .style('fill', self.textColor);
+
+      },
+      _setElementSizes: function(){
+        var self = this,
+            width = self.dims.width,
+            height = self.dims.height,
+            y = self.y,
+            x = self.x,
+            data = self.chartData,
+            valueSize = Math.min(width, height)/3;
+
+
+          //TODO: format display values / adjust margins
+          
+          // Set size of svg
+          self.svg
+            .attr("width", self.dims.width+ self.dims.margin.right + self.dims.margin.left) // TODO: need to fix so the svg width already accounts for this!
+            .attr("height", self.dims.height); 
+
+          // Position g
+          self.g
+            .attr("transform", "translate(0,"+ (self.dims.height-self.dims.margin.top) +")");
+
+          // Set display value and it's position/size
+          self.displayValue
+            .attr("text-anchor", function(){ return self.dataPosition === "left" ? "start" : "end"; })
+            .attr("x", function(){ return self.dataPosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
+            .attr("y", -(height - valueSize - self.dims.margin.top )) 
+            .attr("font-size", valueSize) 
+            .text(self.currentPos.value);
+
+          
+          // Line data, starting state (raise style animation)
+          self.startingLine = d3.svg.line()
+            .x(function(d) { return x(d.date); })
+            .y(0).interpolate(self.lineStyle);
+
+          // Line data, ending state (raise style animation)
+          self.line = d3.svg.line()
+            .x(function(d) { return x(d.date); })
+            .y(function(d) { return -y(d.value); })
+            .interpolate(self.lineStyle);
+
+          // Data for fill area, starting state (raise style animation)
+          self.areaDataStart = d3.svg.area()
+            .x(function(d) { return x(d.date); })
+            .y1(0).interpolate(self.lineStyle);
+
+          // Data for fill area, ending state (raise style animation)
+          self.areaData = d3.svg.area()
+            .x(function(d) { return x(d.date); })
+            .y1(function(d) { return -y(d.value); })
+            .interpolate(self.lineStyle);
+
+          // Create line path with line data  
+          self.linePath
+            .data(data)
+            .attr("d", function(){ return self.fillArea ? self.line(data) : self.startingLine(data);})
+            .attr("class", "data0 no-fill")
+            .attr("stroke-width", "2.5")
+            .attr("opacity", function(){ return self.fillArea ? 0 : 1;})
+            .style("stroke", self.color);
+
+          // Starting fill area path
+          if (self.fillArea){   
+            self.areaPath 
+              .datum(data)
+              .attr("class", "area data0")
+              .attr("opacity", 0)
+              .attr("d", self.areaDataStart)
+              .style("fill", self.color)
+              .style("stroke", self.color);     
+          }
+
+          // Set circles position
+          self.circles
+            .attr("cx", function(d) { return  x(d.date); })
+            .attr("cy", function(d) { return -1 * y(d.value); });
+
+      },
+      _setupTouchAnimate: function(){
+        // When you touch points, update the display value and set the currentPos
+        // Drag and drag end functions for points
+
+      },
+      animate: function(){
+        var self = this,
+            g = self.g, 
+            svg = self.svg,
+            data = self.chartData,
+            x = self.x, 
+            y = self.y,
+            startingLine = self.startingLine;
+
+        if (self.fillArea){ 
+          self.areaPath  
+            // .datum(data)
+              .transition()
+              .duration(1000)
+              .ease("linear")
+              .attr("stroke-dashoffset", 0)
+            .attr("d", self.areaData)
+            .attr("opacity", 0.7);
+        }
+
+        // transition for ending state of line
+        self.linePath
+          .transition()
+            .duration(function(){ return self.fillArea ? 5000 : 1000;})
+            .attr("d", self.line(data))
+            .attr("opacity", 1);
+
+        // 
+        self.circles
+          .transition().delay(1000).duration(500)
+            .attr('r', 4);
+
+        self.circles
+          .select(function(d){ return d.value === self.currentPos.value ? this : null })
+          .classed('stroke-foreground', true)
+          .attr('stroke-width', 2.5);
+
+        // TODO: Move the marker along path, stopping at the points
+
+      },
+      resize: function(){
+
+      },
+      updateData: function(){
+
+      }
+
+
+
+    });
+
+  </script>
+
+</polymer-element>
