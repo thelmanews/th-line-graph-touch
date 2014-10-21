@@ -13,7 +13,7 @@ Element providing solution to no problem in particular.
 @status alpha
 @homepage http://polymerlabs.github.io/th-line-graph-touch
 -->
-<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="lineStyle fillArea animateStyle dateType textColor yAxisMax yAxisMin">
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="numXticks fillArea animateStyle dateType textColor yAxisMax yAxisMin valueSize valuePosition">
 
   <template>
     <core-style ref="theme"> </core-style>
@@ -25,18 +25,19 @@ Element providing solution to no problem in particular.
     </style>
 
     <svg id="chart"></svg> 
-    <div id="info"></div>   
   
   </template>
 
   <script>
     // TODO
-
-    // make it work for multiple lines
-    // make points touchable / draggable
-      // line raises from the bottom, and a marker appears on the first dot. it slides through the graph, displaying the number in the back changing. as soon as it's touched, it stops. when it stops at a point, it pulses.
-
-
+    // - make it work for multiple lines
+    // - when marker stops at a point, it pulses.
+    // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
+    // - Make it work with display values
+    // - Resize, reset, updatedata functions
+    // - Add option for tooltips or remove
+    // - Make sure you can change the line color and it updates in the all the right places
+    // - Abstract out function to update current position?
 
     Polymer({
       chartData: [
@@ -44,9 +45,11 @@ Element providing solution to no problem in particular.
             {'label': 'March 30, 2012', 'value': 108, 'display_value': '$108'},
             {'label': 'August 21, 2013', 'value': 107, 'display_value': '$107'},
             {'label': 'September 21, 2014', 'value': 107, 'display_value': '$107'},
-            {'label': 'January 1, 2016', 'value': 112, 'display_value': '$112'}
+            {'label': 'January 1, 2015', 'value': 112, 'display_value': '$112'}
           ],
       fillArea: false,
+      valuePosition: 'left',
+      dateType: "YYYY",
       init: function() {
         var self = this;
 
@@ -96,9 +99,7 @@ Element providing solution to no problem in particular.
         // Set x-scale
         self.x = d3.time.scale().domain(d3.extent(self.chartData, function(d){return d.date;})).range([self.dims.margin.left, self.dims.width ]);
 
-        // TODO: Expose this? 
         self.numXticks = Math.min(5, self.chartData.length);
-        self.numYticks = 4;
       },
       _setupElements: function(){
         var self = this,
@@ -113,7 +114,7 @@ Element providing solution to no problem in particular.
           value: data[0].value,
           label: data[0].label,
           date: data[0].date,
-          index: 1
+          index: 0
         };
 
         // Create chart container
@@ -150,9 +151,7 @@ Element providing solution to no problem in particular.
         self.areaPath = g.append("path");
 
         // Line path
-        self.linePath = g.selectAll('.data0')
-            .data(data)
-            .enter().append("path")
+        self.linePath = g.append("path")
             .attr("class", "data0 no-fill")
             .attr("stroke-width", "3")
             .style("fill", "none")
@@ -165,9 +164,6 @@ Element providing solution to no problem in particular.
           .attr('class', 'datapoint data0');
 
         self.circles = self.datapoints
-          // .selectAll(".circle")
-          // .data(data)
-          // .enter()
           .append("circle")
           .attr("class", "circle data0")
           .attr("r", 0)
@@ -179,14 +175,11 @@ Element providing solution to no problem in particular.
           .attr('opacity', 0);
 
         // Marker
-        
-        // self.marker = self.datapoints.selectAll('.marker')
-        //   .data([self.currentPos])
-        //   .enter().append("circle")
-        //   .attr("class", "marker data0")
-        //   .attr("r", 0)
-        //   .style("fill", self.color)
-        //   .style("stroke", self.textColor);
+        self.marker = self.g.append("circle")
+          .data([self.currentPos])
+          .attr("r", 0)
+          .attr('class', 'marker stroke-foreground data0')
+          .attr('stroke-width', 3);
         
         // TODO: is this needed?
         // Tooltips 
@@ -205,8 +198,7 @@ Element providing solution to no problem in particular.
             y = self.y,
             x = self.x,
             data = self.chartData,
-            valueSize = Math.min(width, height)/3;
-
+            valueSize = self.valueSize || Math.min(width, height)/3;
 
           //TODO: format display values / adjust margins
           
@@ -221,8 +213,8 @@ Element providing solution to no problem in particular.
 
           // Set display value and it's position/size
           self.displayValue
-            .attr("text-anchor", function(){ return self.dataPosition === "left" ? "start" : "end"; })
-            .attr("x", function(){ return self.dataPosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
+            .attr("text-anchor", function(){ return self.valuePosition === "left" ? "start" : "end"; })
+            .attr("x", function(){ return self.valuePosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
             .text(function(d){return d.value});
@@ -277,21 +269,22 @@ Element providing solution to no problem in particular.
 
           self.circles
             .attr("cx", function(d) { return  x(d.date); })
-            .attr("cy", function(d) { return -1 * y(d.value); })
-            .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
-            .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false});
+            .attr("cy", function(d) { return -1 * y(d.value); });
 
           self.circleAreas
             .attr("cx", function(d) { return  x(d.date); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
-          // self.marker
-          //   .attr("cx", function(d) { return  x(d.date); })
-          //   .attr("cy", function(d) { return -1 * y(d.value); })
-          //   .attr('opacity', 0)
-          //   .classed('stroke-foreground', true)
-          //   .attr('r', 4)
-          //   .attr('stroke-width', 2.5);
+          self.marker
+            .attr("transform", function(d){
+              return "translate(" + x(d.date) +","+ -y(d.value)+ ")"; 
+            })
+            .on('down', function(data){
+              self.circles
+                .attr('stroke-width', function(d,i){ return i === data.index ? 3 : 1})
+                .classed('stroke-foreground', function(d,i){ return i === data.index ? true : false});
+            })
+            .on('up', this.remove);;
 
       },
       _setupTouchAnimate: function(){
@@ -309,14 +302,15 @@ Element providing solution to no problem in particular.
             self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
+            self.animateMarker = false;
+            self.marker.remove();
             
-            // TODO: why don't these elements update automatically when currentPos changes?
+            // Update circles and value to reflect touched point
             self.circles
               .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false});
 
             self.displayValue.text(function(d){return d.value;})
-            // TODO: Make the animated marker disappear
           })
 
         // Drag and drag end functions for points
@@ -331,20 +325,16 @@ Element providing solution to no problem in particular.
         function dragMove(d,i){
           startY = startY || -parseInt(d3.select(this).select('.circle').attr('cy'));
           startX = startX || -parseInt(d3.select(this).select('.circle').attr('cx'));
-          console.log(startY);
-          console.log(startX);
+
+          // Determine the X and Y position
           var yPos = startY - d3.event.y || 0;
           var xPos = startX - d3.event.x || 0;
           
           // Update current position values
           self.currentPos.value = y.invert(yPos);
-          console.log(self.currentPos.label);
-          
           self.currentPos.label = x.invert(xPos);
+          self.currentPos.index = i;
           self.currentPos.date = Date.parse(self.currentPos.label);
-          console.log(self.currentPos.label);
-        
-          // console.log(d3.select(this));
           
           // Create line data for dragged line
           var dragLine = d3.svg.line()
@@ -356,14 +346,21 @@ Element providing solution to no problem in particular.
           self.linePath
             .attr('d', dragLine(data));
 
-          // Move marker and circle along with line;
-          // self.marker
-            // .attr("cy", function(d) { return -yPos; });
+          // Adjust fillArea if option is true
+          if (self.fillArea){
+            var dragArea = d3.svg.area()
+              .x(function(d,index) { return i === index ? -x(self.currentPos.date) : x(d.date); })
+              .y1(function(d, index) { return i === index ? -y(self.currentPos.value) : -y(d.value); })
+              .interpolate(self.lineStyle);
+            self.areaPath
+              .attr('d', dragArea(data));
+          }
+
+          // Move the datapoint
           d3.select(this)
             .attr('transform', function(d){
               return 'translate('+ d3.event.x +','+ d3.event.y +')';
             })
-            // .attr("cy", function(d) { return -yPos; });
           
           // Update display value
           self.displayValue.text(function(d){return parseInt(d.value);}) // TODO: figure out how to do with decimals and display value
@@ -377,7 +374,14 @@ Element providing solution to no problem in particular.
           // Return line back to normal
           self.linePath
             .transition().ease('elastic' , 1 , .7).duration(1000)
-              .attr('d', self.line(self.chartData));
+              .attr('d', self.line(data));
+
+          // Return fill area back to normal 
+          if (self.fillArea){   
+            self.areaPath
+              .transition().ease('elastic' , 1 , .7).duration(1000)
+                .attr('d', self.areaData(data));
+          }
 
           // Return datapoint back to normal
           d3.select(this)
@@ -385,17 +389,91 @@ Element providing solution to no problem in particular.
             .attr("transform",'translate(0,0)');
           
           // Return value back to normal
-          self.displayValue.text(function(d){return d.value;})
-          
+          self.displayValue
+            .transition().duration(400)
+            .tween('text', function(d){
+                var i = d3.interpolate(this.textContent, d.value);
+                return function(t) {
+                  this.textContent = Math.round(i(t));
+                };
+            })
+
           // Reset start drag position
           startY = null;
           startX = null;
 
-          // TODO: tween the number back to normal?
         }   
-        // TODO: edit drag function so if the marker is dragged, the circle goes with it -- add a g?
         self.datapoints.call(drag);
-        // self.marker.call(drag);
+        self.circles.call(drag);
+      },
+      _updateCurrentPos: function(){
+
+      },
+      _animateMarker: function(){
+        var self = this,
+            data = self.chartData
+            x = self.x,
+            y = self.y;
+          
+          self.animateMarker = true;
+
+          var markerLine = d3.svg.line()
+              .x(function(d,i) { return x(d.date); })
+              .y(function(d,i) { return -y(d.value); })
+              .interpolate(self.lineStyle);
+          
+          var markerPath = self.g.append("path")
+              .attr("class", "markerPath data0 no-fill")
+              .attr('fill', 'none')
+              .attr("stroke-width", 0)
+              .attr('d', markerLine([data[0],data[0]]));
+   
+          transition(markerPath);  
+          
+          function transition(path) {
+            self.marker.transition()
+                .delay(1500)
+                .duration(800)
+                .attrTween("transform", translateAlong(path.node()))
+                .each("end", function(d,i){                   
+                  // Update current position
+                  self.currentPos.value = data[d.index].value;
+                  self.currentPos.date = data[d.index].date;
+                  self.currentPos.label = data[d.index].label;
+
+                  // Check if it has reached the end
+                  if (d.index == data.length-1 || !self.animateMarker){
+                    return null;
+
+                  // If not, move the marker to the next point
+                  } else {
+                    markerPath.attr('d', markerLine([data[d.index],data[d.index+1]])); // Update segment
+                    d.index++; // Increment counter
+
+                    // Animate the value
+                    self.displayValue.transition().delay(1500).duration(1000)
+                      .tween('text', function(){
+                          var i = d3.interpolate(this.textContent, data[d.index].value);
+                          return function(t) {
+                            this.textContent = Math.round(i(t));
+                          };
+                      })
+                    return transition(markerPath);  // Recursively call function for next transition
+                  }
+
+                });
+          }
+
+          function translateAlong(path) {
+            var l = path.getTotalLength();
+            return function(i) {
+              return function(t) {              
+                var p = path.getPointAtLength(t * l);
+                return "translate(" + p.x + "," + p.y + ")"; //Move marker
+              }
+            }
+          }
+        
       },
       animate: function(){
         var self = this,
@@ -406,18 +484,17 @@ Element providing solution to no problem in particular.
             y = self.y,
             startingLine = self.startingLine;
 
+        // Fade in fillArea if option is chosen
         if (self.fillArea){ 
           self.areaPath  
-            // .datum(data)
-              .transition()
-              .duration(1000)
+              .transition().duration(1000)
               .ease("linear")
               .attr("stroke-dashoffset", 0)
             .attr("d", self.areaData)
             .attr("opacity", 0.7);
         }
 
-        // transition for ending state of line
+        // Raise line
         self.linePath
           .transition()
             .duration(function(){ return self.fillArea ? 5000 : 1000;})
@@ -428,18 +505,26 @@ Element providing solution to no problem in particular.
         self.circles
           .transition().delay(1000).duration(500)
             .attr('r', 5);
-        
-        
 
-        // TODO: Move the marker along path, stopping at the points - http://bl.ocks.org/KoGor/8162640
-        // TODO: Make the marker pulse 
-
+        // Show marker and animate
+        self.marker
+          .transition().delay(1000).duration(500)
+            .attr('r', 5)
+            .each('end', self._animateMarker());
       },
+
       resize: function(){
 
       },
       updateData: function(){
 
+      },
+      reset: function(){
+        var self = this;
+        self.animateMarker = true;
+        // move marker back to original position
+        // reset the line to be flat
+        // reset the display value
       }
 
 
