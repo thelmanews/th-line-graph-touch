@@ -112,7 +112,8 @@ Element providing solution to no problem in particular.
         self.currentPos = { 
           value: data[0].value,
           label: data[0].label,
-          date: data[0].date
+          date: data[0].date,
+          index: 1
         };
 
         // Create chart container
@@ -158,29 +159,34 @@ Element providing solution to no problem in particular.
             .style("stroke", self.color);
 
         // Datapoints
-        self.circles = g.selectAll(".circle")
+        self.datapoints = g.selectAll('.datapoint')
           .data(data)
-          .enter().append("circle")
-          .attr("class", "circle data0 ")
-          .attr("r", 0)
-          .attr('stroke-width', 25)
-          .attr('stroke-opacity', 0)
-          .style("fill", self.color);
-          // .style("stroke", self.textColor);
+          .enter().append('g')
+          .attr('class', 'datapoint data0');
 
-        self.circleAreas = self.circles.append('circle')
+        self.circles = self.datapoints
+          // .selectAll(".circle")
+          // .data(data)
+          // .enter()
+          .append("circle")
+          .attr("class", "circle data0")
+          .attr("r", 0)
+          .style("fill", self.color);
+
+        self.circleAreas = self.datapoints.append('circle')
           .attr('class', 'circleArea')
-          .attr('r', 8)
+          .attr('r', 25)
           .attr('opacity', 0);
 
         // Marker
-        self.marker = g.selectAll('.marker')
-          .data([self.currentPos])
-          .enter().append("circle")
-          .attr("class", "marker data0")
-          .attr("r", 0)
-          .style("fill", self.color)
-          .style("stroke", self.textColor);
+        
+        // self.marker = self.datapoints.selectAll('.marker')
+        //   .data([self.currentPos])
+        //   .enter().append("circle")
+        //   .attr("class", "marker data0")
+        //   .attr("r", 0)
+        //   .style("fill", self.color)
+        //   .style("stroke", self.textColor);
         
         // TODO: is this needed?
         // Tooltips 
@@ -265,17 +271,27 @@ Element providing solution to no problem in particular.
           }
 
           // Set circles position
-          self.circles
+          self.datapoints
             .attr("cx", function(d) { return  x(d.date); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
-          self.marker
+          self.circles
             .attr("cx", function(d) { return  x(d.date); })
             .attr("cy", function(d) { return -1 * y(d.value); })
-            .attr('opacity', 0)
-            .classed('stroke-foreground', true)
-            .attr('r', 4)
-            .attr('stroke-width', 2.5);
+            .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
+            .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false});
+
+          self.circleAreas
+            .attr("cx", function(d) { return  x(d.date); })
+            .attr("cy", function(d) { return -1 * y(d.value); });
+
+          // self.marker
+          //   .attr("cx", function(d) { return  x(d.date); })
+          //   .attr("cy", function(d) { return -1 * y(d.value); })
+          //   .attr('opacity', 0)
+          //   .classed('stroke-foreground', true)
+          //   .attr('r', 4)
+          //   .attr('stroke-width', 2.5);
 
       },
       _setupTouchAnimate: function(){
@@ -283,22 +299,24 @@ Element providing solution to no problem in particular.
             x = self.x,
             y = self.y,
             data = self.chartData,
-            startY;
+            startY,
+            startX;
             
-          
-       
         // When a point is touched, update the display value and set the currentPos
-        self.circles
-          .on('down', function(d){
+        self.datapoints
+          .on('down', function(d,i){
             self.currentPos.value = d.value;
             self.currentPos.date = d.date;
             self.currentPos.label = d.label;
-            // TODO: why don't these elements update automatically?
-            // TODO: make the touch radius bigger
+            self.currentPos.index = i;
+            
+            // TODO: why don't these elements update automatically when currentPos changes?
+            self.circles
+              .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
+              .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false});
+
             self.displayValue.text(function(d){return d.value;})
-            self.marker
-              .attr("cx", function(d) { return  x(d.date); })
-              .attr("cy", function(d) { return -1 * y(d.value); })
+            // TODO: Make the animated marker disappear
           })
 
         // Drag and drag end functions for points
@@ -311,15 +329,26 @@ Element providing solution to no problem in particular.
           .on('dragend', dragEnd);
         
         function dragMove(d,i){
-          startY = startY || -parseInt(d3.select(this).attr('cy'));
+          startY = startY || -parseInt(d3.select(this).select('.circle').attr('cy'));
+          startX = startX || -parseInt(d3.select(this).select('.circle').attr('cx'));
+          console.log(startY);
+          console.log(startX);
           var yPos = startY - d3.event.y || 0;
+          var xPos = startX - d3.event.x || 0;
           
           // Update current position values
           self.currentPos.value = y.invert(yPos);
-
+          console.log(self.currentPos.label);
+          
+          self.currentPos.label = x.invert(xPos);
+          self.currentPos.date = Date.parse(self.currentPos.label);
+          console.log(self.currentPos.label);
+        
+          // console.log(d3.select(this));
+          
           // Create line data for dragged line
           var dragLine = d3.svg.line()
-              .x(function(d) { return x(d.date); })
+              .x(function(d, index) { return i === index ? -x(self.currentPos.date) : x(d.date); })
               .y(function(d,index) { return i === index ? -y(self.currentPos.value) : -y(d.value); })
               .interpolate(self.lineStyle);
           
@@ -328,17 +357,16 @@ Element providing solution to no problem in particular.
             .attr('d', dragLine(data));
 
           // Move marker and circle along with line;
-          self.marker
-            .attr("cy", function(d) { return -yPos; });
+          // self.marker
+            // .attr("cy", function(d) { return -yPos; });
           d3.select(this)
-            .attr("cy", function(d) { return -yPos; });
+            .attr('transform', function(d){
+              return 'translate('+ d3.event.x +','+ d3.event.y +')';
+            })
+            // .attr("cy", function(d) { return -yPos; });
           
           // Update display value
-          self.displayValue.text(function(d){return parseInt(d.value);})
-
-          // TODO: also let the cx position be dragged
-          // TODO: figure out how to do with decimals and display values
-          // 
+          self.displayValue.text(function(d){return parseInt(d.value);}) // TODO: figure out how to do with decimals and display value
 
         } 
 
@@ -351,22 +379,23 @@ Element providing solution to no problem in particular.
             .transition().ease('elastic' , 1 , .7).duration(1000)
               .attr('d', self.line(self.chartData));
 
-          // Return marker and circle back to normal
-          self.marker
-            .transition().ease('elastic' , 1 , .7).duration(1000)
-            .attr("cy", function(d) { return -1 * y(d.value); });
+          // Return datapoint back to normal
           d3.select(this)
             .transition().ease('elastic' , 1 , .7).duration(1000)
-            .attr("cy", function(d) { return -1 * y(d.value); });
+            .attr("transform",'translate(0,0)');
+          
+          // Return value back to normal
           self.displayValue.text(function(d){return d.value;})
+          
           // Reset start drag position
           startY = null;
+          startX = null;
 
           // TODO: tween the number back to normal?
         }   
         // TODO: edit drag function so if the marker is dragged, the circle goes with it -- add a g?
-        self.circles.call(drag);
-        self.marker.call(drag);
+        self.datapoints.call(drag);
+        // self.marker.call(drag);
       },
       animate: function(){
         var self = this,
@@ -400,11 +429,7 @@ Element providing solution to no problem in particular.
           .transition().delay(1000).duration(500)
             .attr('r', 5);
         
-        // Show data marker
-        self.marker
-          .transition().delay(1000).duration(500)
-          .attr('opacity',1);
-          
+        
 
         // TODO: Move the marker along path, stopping at the points - http://bl.ocks.org/KoGor/8162640
         // TODO: Make the marker pulse 
