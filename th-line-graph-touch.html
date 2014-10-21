@@ -161,12 +161,19 @@ Element providing solution to no problem in particular.
         self.circles = g.selectAll(".circle")
           .data(data)
           .enter().append("circle")
-          .attr("class", "circle data0")
+          .attr("class", "circle data0 ")
           .attr("r", 0)
-          .style("fill", self.color)
-          .style("stroke", self.textColor);
+          .attr('stroke-width', 25)
+          .attr('stroke-opacity', 0)
+          .style("fill", self.color);
+          // .style("stroke", self.textColor);
 
-        // TODO: append a marker
+        self.circleAreas = self.circles.append('circle')
+          .attr('class', 'circleArea')
+          .attr('r', 8)
+          .attr('opacity', 0);
+
+        // Marker
         self.marker = g.selectAll('.marker')
           .data([self.currentPos])
           .enter().append("circle")
@@ -357,7 +364,7 @@ Element providing solution to no problem in particular.
 
           // TODO: tween the number back to normal?
         }   
-
+        // TODO: edit drag function so if the marker is dragged, the circle goes with it -- add a g?
         self.circles.call(drag);
         self.marker.call(drag);
       },
@@ -391,7 +398,7 @@ Element providing solution to no problem in particular.
         // Show datapoints
         self.circles
           .transition().delay(1000).duration(500)
-            .attr('r', 4);
+            .attr('r', 5);
         
         // Show data marker
         self.marker
