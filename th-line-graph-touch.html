@@ -33,9 +33,7 @@ Element providing solution to no problem in particular.
     // - make it work for multiple lines
     // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
     // * Make it work with display values
-    // - Resize, reset, updatedata functions
     // - Add option for tooltips or remove
-    // - Abstract out function to update current position?
 
     Polymer({
       chartData: [
@@ -45,7 +43,7 @@ Element providing solution to no problem in particular.
             {'label': 'September 21, 2014', 'value': 107, 'display_value': '$107'},
             {'label': 'January 1, 2015', 'value': 112, 'display_value': '$112'}
           ],
-      fillArea: true,
+      fillArea: false,
       valuePosition: 'left',
       dateType: "YYYY",
       init: function() {
@@ -319,6 +317,8 @@ Element providing solution to no problem in particular.
             self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
+
+            console.log(self.currentPos);
             self.animateMarker = false; // Cancels the automated movement of marker
             self.marker.remove();
             
@@ -328,7 +328,8 @@ Element providing solution to no problem in particular.
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
-            self.displayValue.text(function(d){return d.value;})
+            self.displayValue.text(function(d){console.log(d.value);return d.value;})
+
 
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
@@ -380,7 +381,6 @@ Element providing solution to no problem in particular.
           self.currentPos.index = i;
           self.currentPos.date = Date.parse(self.currentPos.label);  
 
-          console.log(self.currentPos.value);
           // Update display value
           self.displayValue.text(function(d){return parseInt(d.value);}) // TODO: figure out how to do with decimals and display value
 
@@ -417,9 +417,6 @@ Element providing solution to no problem in particular.
         }   
         self.datapoints.call(drag);
         self.circles.call(drag);
-      },
-      _updateCurrentPos: function(){
-
       },
       _animateMarker: function(){
         var self = this,
@@ -499,6 +496,16 @@ Element providing solution to no problem in particular.
           }
         
       },
+      _resetCurrentPosition: function(){
+        var self = this;
+
+        self.currentPos = { 
+          value: self.chartData[0].value,
+          label: self.chartData[0].label,
+          date: self.chartData[0].date,
+          index: 0
+        };
+      },
       animate: function(){
         var self = this,
             g = self.g, 
@@ -535,8 +542,6 @@ Element providing solution to no problem in particular.
           .transition().delay(1000).duration(500)
             .attr('r', 5)
             .each('end', self._animateMarker());
-
-
       },
 
       resize: function(){
@@ -570,12 +575,7 @@ Element providing solution to no problem in particular.
         self._scaleBuilder();
 
         // Update current position
-        self.currentPos = { 
-          value: data[0].value,
-          label: data[0].label,
-          date: data[0].date,
-          index: 0
-        };
+        self._resetCurrentPosition();
 
         // Select elements
         self.xLabels = self.g.selectAll('.xLabel').data(x.ticks(self.numXticks));
@@ -618,10 +618,23 @@ Element providing solution to no problem in particular.
       },
       reset: function(){
         var self = this;
-        self.animateMarker = true;
-        // move marker back to original position
-        // reset the line to be flat
-        // reset the display value
+        
+        // Reset marker
+        self.animateMarker = false;
+        self.marker.remove();
+        self.marker = self.g.append("circle")
+          .data([self.currentPos])
+          .attr('class', 'marker stroke-foreground data0');
+        
+        // Reset element sizes
+        self._setElementSizes();
+
+        // Reset line
+        self.linePath
+          .attr("d", function(){ return self.fillArea ? self.line(self.chartData) : self.startingLine(self.chartData);})
+            .attr("opacity", function(){ return self.fillArea ? 0 : 1;})
+
+        // TODO: sometimes if it is in the middle of animation, delays create a weird effect/lag when reset and re-animated
       }
 
 
