@@ -31,12 +31,10 @@ Element providing solution to no problem in particular.
   <script>
     // TODO
     // - make it work for multiple lines
-    // - when marker stops at a point, it pulses.
     // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
     // - Make it work with display values
     // - Resize, reset, updatedata functions
     // - Add option for tooltips or remove
-    // - Make sure you can change the line color and it updates in the all the right places
     // - Abstract out function to update current position?
 
     Polymer({
@@ -167,7 +165,8 @@ Element providing solution to no problem in particular.
           .append("circle")
           .attr("class", "circle data0")
           .attr("r", 0)
-          .style("fill", self.color);
+          .style("fill", self.color)
+          .style("stroke", self.color);
 
         self.circleAreas = self.datapoints.append('circle')
           .attr('class', 'circleArea')
@@ -179,8 +178,11 @@ Element providing solution to no problem in particular.
           .data([self.currentPos])
           .attr("r", 0)
           .attr('class', 'marker stroke-foreground data0')
-          .attr('stroke-width', 3);
-        
+          .attr('stroke-width', 3)
+          .attr('stroke-opacity', 1)
+          .style("fill", self.color)
+          .style("stroke", self.textColor);;
+
         // TODO: is this needed?
         // Tooltips 
         self.tips = g.selectAll('.tip')
@@ -284,7 +286,7 @@ Element providing solution to no problem in particular.
                 .attr('stroke-width', function(d,i){ return i === data.index ? 3 : 1})
                 .classed('stroke-foreground', function(d,i){ return i === data.index ? true : false});
             })
-            .on('up', this.remove);;
+            .on('up', this.remove);
 
       },
       _setupTouchAnimate: function(){
@@ -308,9 +310,13 @@ Element providing solution to no problem in particular.
             // Update circles and value to reflect touched point
             self.circles
               .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
-              .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false});
+              .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
+              .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
             self.displayValue.text(function(d){return d.value;})
+
+            self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
+            self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
           })
 
         // Drag and drag end functions for points
@@ -323,23 +329,14 @@ Element providing solution to no problem in particular.
           .on('dragend', dragEnd);
         
         function dragMove(d,i){
-          startY = startY || -parseInt(d3.select(this).select('.circle').attr('cy'));
-          startX = startX || -parseInt(d3.select(this).select('.circle').attr('cx'));
-
           // Determine the X and Y position
-          var yPos = startY - d3.event.y || 0;
-          var xPos = startX - d3.event.x || 0;
-          
-          // Update current position values
-          self.currentPos.value = y.invert(yPos);
-          self.currentPos.label = x.invert(xPos);
-          self.currentPos.index = i;
-          self.currentPos.date = Date.parse(self.currentPos.label);
+          var yPos = self.startY - d3.event.y;
+          var xPos = self.startX - d3.event.x;
           
           // Create line data for dragged line
           var dragLine = d3.svg.line()
-              .x(function(d, index) { return i === index ? -x(self.currentPos.date) : x(d.date); })
-              .y(function(d,index) { return i === index ? -y(self.currentPos.value) : -y(d.value); })
+              .x(function(d, index) { return i === index ? -xPos : x(d.date); })
+              .y(function(d,index) { return i === index ? -yPos : -y(d.value); })
               .interpolate(self.lineStyle);
           
           // Apply dragged line data to main path
@@ -349,8 +346,8 @@ Element providing solution to no problem in particular.
           // Adjust fillArea if option is true
           if (self.fillArea){
             var dragArea = d3.svg.area()
-              .x(function(d,index) { return i === index ? -x(self.currentPos.date) : x(d.date); })
-              .y1(function(d, index) { return i === index ? -y(self.currentPos.value) : -y(d.value); })
+              .x(function(d,index) { return i === index ? -xPos : x(d.date); })
+              .y1(function(d, index) { return i === index ? -yPos : -y(d.value); })
               .interpolate(self.lineStyle);
             self.areaPath
               .attr('d', dragArea(data));
@@ -368,24 +365,21 @@ Element providing solution to no problem in particular.
         } 
 
         function dragEnd(d){
-          // Reset current position back to normal
-          self.currentPos.value = d.value;
-
           // Return line back to normal
           self.linePath
-            .transition().ease('elastic' , 1 , .7).duration(1000)
+            .transition().ease('elastic' , 1 , .7).duration(800)
               .attr('d', self.line(data));
 
           // Return fill area back to normal 
           if (self.fillArea){   
             self.areaPath
-              .transition().ease('elastic' , 1 , .7).duration(1000)
+              .transition().ease('elastic' , 1 , .7).duration(800)
                 .attr('d', self.areaData(data));
           }
 
           // Return datapoint back to normal
           d3.select(this)
-            .transition().ease('elastic' , 1 , .7).duration(1000)
+            .transition().ease('elastic' , 1 , .7).duration(800)
             .attr("transform",'translate(0,0)');
           
           // Return value back to normal
@@ -397,10 +391,6 @@ Element providing solution to no problem in particular.
                   this.textContent = Math.round(i(t));
                 };
             })
-
-          // Reset start drag position
-          startY = null;
-          startX = null;
 
         }   
         self.datapoints.call(drag);
@@ -441,6 +431,17 @@ Element providing solution to no problem in particular.
                   self.currentPos.date = data[d.index].date;
                   self.currentPos.label = data[d.index].label;
 
+                  // Pulse effect when marker stops at a point
+                  d3.select(this)
+                      .transition().duration(750)
+                        .attr('r', 10)
+                        .attr('stroke-width', 8)
+                        .attr('stroke-opacity', 0.7)
+                      .transition().duration(750)
+                        .attr('r', 5)
+                        .attr('stroke-width', 3)
+                        .attr('stroke-opacity', 1);
+
                   // Check if it has reached the end
                   if (d.index == data.length-1 || !self.animateMarker){
                     return null;
@@ -462,6 +463,7 @@ Element providing solution to no problem in particular.
                   }
 
                 });
+          
           }
 
           function translateAlong(path) {
@@ -511,6 +513,8 @@ Element providing solution to no problem in particular.
           .transition().delay(1000).duration(500)
             .attr('r', 5)
             .each('end', self._animateMarker());
+
+
       },
 
       resize: function(){
