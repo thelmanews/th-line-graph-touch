@@ -32,7 +32,7 @@ Element providing solution to no problem in particular.
     // TODO
     // - make it work for multiple lines
     // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
-    // - Make it work with display values
+    // * Make it work with display values
     // - Resize, reset, updatedata functions
     // - Add option for tooltips or remove
     // - Abstract out function to update current position?
@@ -45,7 +45,7 @@ Element providing solution to no problem in particular.
             {'label': 'September 21, 2014', 'value': 107, 'display_value': '$107'},
             {'label': 'January 1, 2015', 'value': 112, 'display_value': '$112'}
           ],
-      fillArea: false,
+      fillArea: true,
       valuePosition: 'left',
       dateType: "YYYY",
       init: function() {
@@ -120,69 +120,44 @@ Element providing solution to no problem in particular.
         var g = self.svg.append("g");
         self.g = g;
         
-        // Create x-axis
-        var xAxis = d3.svg.axis()
-          .scale(x)
-          .ticks(self.numXticks)
-          .tickFormat(d3.time.format(self.dateFormat))
-          .tickSize(0);
-
-        self.xAxis = g.append("g").attr('class', 'axis xAxis').call(xAxis).style('stroke', self.textColor);
-        
-        // Format ticks
-        g.selectAll('.tick').selectAll('line').attr('y2', 0);
-        
-        // Create x-labels
-        self.xLabels = g.selectAll('.axis').selectAll('text')
-          .attr('class', 'label no-stroke xLabel').attr('y', 8)
-          .style('fill', self.textColor);
-
+        self.xAxis = g.append("g").attr('class', 'axis xAxis fill-foreground');
+          
         // Add large display value
         self.displayValue = g.append('g')
-          .selectAll('.displayVal').data([self.currentPos]).enter().append('text')
-          .attr("class", "fill-foreground displayVal")
-          .attr("opacity", 0.7)
-          .style("fill", self.textColor)
-          .style("stroke", self.textColor); // this can start as 0 and fade in after datapoint and joystick appear
-
+          .selectAll('.displayVal')
+          .data([self.currentPos]).enter()
+          .append('text')
+          .attr("class", "fill-foreground displayVal");
+          
         // Fill area path
-        self.areaPath = g.append("path");
+        if(self.fillArea){
+          self.areaPath = g.append("path");
+        }
 
         // Line path
-        self.linePath = g.append("path")
-            .attr("class", "data0 no-fill")
-            .attr("stroke-width", "3")
-            .style("fill", "none")
-            .style("stroke", self.color);
+        self.linePath = g.append("path").data(data)
+            .attr("class", "line data0 no-fill");
+            
 
         // Datapoints
         self.datapoints = g.selectAll('.datapoint')
           .data(data)
           .enter().append('g')
           .attr('class', 'datapoint data0');
-
+          
         self.circles = self.datapoints
           .append("circle")
-          .attr("class", "circle data0")
-          .attr("r", 0)
-          .style("fill", self.color)
-          .style("stroke", self.color);
+          .attr("class", "circle data0");
 
-        self.circleAreas = self.datapoints.append('circle')
-          .attr('class', 'circleArea')
-          .attr('r', 25)
-          .attr('opacity', 0);
-
+        self.circleAreas = self.datapoints
+          .append('circle')
+          .attr('class', 'circleArea');
+          
         // Marker
         self.marker = self.g.append("circle")
           .data([self.currentPos])
-          .attr("r", 0)
-          .attr('class', 'marker stroke-foreground data0')
-          .attr('stroke-width', 3)
-          .attr('stroke-opacity', 1)
-          .style("fill", self.color)
-          .style("stroke", self.textColor);;
-
+          .attr('class', 'marker stroke-foreground data0');
+          
         // TODO: is this needed?
         // Tooltips 
         self.tips = g.selectAll('.tip')
@@ -206,15 +181,39 @@ Element providing solution to no problem in particular.
           
           // Set size of svg
           self.svg
-            .attr("width", self.dims.width+ self.dims.margin.right + self.dims.margin.left) // TODO: need to fix so the svg width already accounts for this!
+            .attr("width", self.dims.width+ self.dims.margin.right + self.dims.margin.left) 
             .attr("height", self.dims.height); 
 
           // Position g
           self.g
             .attr("transform", "translate(0,"+ (self.dims.height-self.dims.margin.top) +")");
 
+
+          // Create x-axis
+        var xAxis = d3.svg.axis()
+          .scale(x)
+          .ticks(self.numXticks)
+          .tickFormat(d3.time.format(self.dateFormat))
+          .tickSize(0);
+
+          self.xAxis
+            .call(xAxis).style('stroke', self.textColor)
+            .style('stroke', self.textColor);
+
+
+          // Create x-labels
+          self.xLabels = self.g.selectAll('.axis')
+            .selectAll('text')
+            .attr('class', 'label no-stroke xLabel')
+            .attr('y', 8)
+            .style('fill', self.textColor);
+
           // Set display value and it's position/size
           self.displayValue
+            .attr("class", "fill-foreground displayVal")
+            .attr("opacity", 0.7)
+            .style("fill", self.textColor)
+            .style("stroke", self.textColor) // this can start as 0 and fade in after datapoint and joystick appear
             .attr("text-anchor", function(){ return self.valuePosition === "left" ? "start" : "end"; })
             .attr("x", function(){ return self.valuePosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
@@ -246,10 +245,11 @@ Element providing solution to no problem in particular.
 
           // Create line path with line data  
           self.linePath
-            .data(data)
+            // .data(data)
+            .attr("class", "line data0 no-fill")
+            .attr("stroke-width", "3")
+            .style("fill", "none")
             .attr("d", function(){ return self.fillArea ? self.line(data) : self.startingLine(data);})
-            .attr("class", "data0 no-fill")
-            .attr("stroke-width", "2.5")
             .attr("opacity", function(){ return self.fillArea ? 0 : 1;})
             .style("stroke", self.color);
 
@@ -266,18 +266,33 @@ Element providing solution to no problem in particular.
 
           // Set circles position
           self.datapoints
+            .attr('class', 'datapoint data0')
             .attr("cx", function(d) { return  x(d.date); })
-            .attr("cy", function(d) { return -1 * y(d.value); });
+            .attr("cy", function(d) { console.log(y(d.value)); return -1 * y(d.value); });
 
           self.circles
+            .attr("class", "circle data0")
+            .attr("r", 0)
+            .style("fill", self.color)
+            .style("stroke", self.color)
             .attr("cx", function(d) { return  x(d.date); })
-            .attr("cy", function(d) { return -1 * y(d.value); });
+            .attr("cy", function(d) { console.log(y(d.value)); return -1 * y(d.value); });
 
           self.circleAreas
+            .attr('class', 'circleArea')
+            .attr('r', 25)
+            .attr('opacity', 0)
             .attr("cx", function(d) { return  x(d.date); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
           self.marker
+            .attr("r", 0)
+            .attr('class', 'marker stroke-foreground data0')
+            .attr('stroke-width', 3)
+            .attr('stroke-opacity', 1)
+            .style("fill", self.color)
+            .style("stroke", self.textColor)
+
             .attr("transform", function(d){
               return "translate(" + x(d.date) +","+ -y(d.value)+ ")"; 
             })
@@ -304,7 +319,7 @@ Element providing solution to no problem in particular.
             self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
-            self.animateMarker = false;
+            self.animateMarker = false; // Cancels the automated movement of marker
             self.marker.remove();
             
             // Update circles and value to reflect touched point
@@ -359,6 +374,13 @@ Element providing solution to no problem in particular.
               return 'translate('+ d3.event.x +','+ d3.event.y +')';
             })
           
+          // Update current position values for display value
+          self.currentPos.value = y.invert(yPos);
+          self.currentPos.label = x.invert(xPos);
+          self.currentPos.index = i;
+          self.currentPos.date = Date.parse(self.currentPos.label);  
+
+          console.log(self.currentPos.value);
           // Update display value
           self.displayValue.text(function(d){return parseInt(d.value);}) // TODO: figure out how to do with decimals and display value
 
@@ -405,7 +427,7 @@ Element providing solution to no problem in particular.
             x = self.x,
             y = self.y;
           
-          self.animateMarker = true;
+          self.animateMarker = true; // While true, marker will move along line
 
           var markerLine = d3.svg.line()
               .x(function(d,i) { return x(d.date); })
@@ -518,9 +540,80 @@ Element providing solution to no problem in particular.
       },
 
       resize: function(){
+        var self = this;
 
+        // Recalulate dimensions
+        self.dims = self.setupDimensions(self);
+        self.dims.margin.right = 10; 
+        self.dims.margin.left = 15;
+        self.dims.width -= self.dims.margin.left + self.dims.margin.right;
+        
+        // Set scales
+        self._scaleBuilder();
+
+        // Recreate xAxis
+        self.xAxis.remove();
+        self.xLabels.remove();
+        self.xAxis = self.g.append("g").attr('class', 'axis xAxis fill-foreground');
+
+        // Setup elements and sizes
+        self._setElementSizes();
+        self._setupTouchAnimate();
+        self._animateMarker();
+        self.animate();
       },
       updateData: function(){
+        var self = this,
+            data = self.chartData;
+
+        // Adjust scales
+        self._scaleBuilder();
+
+        // Update current position
+        self.currentPos = { 
+          value: data[0].value,
+          label: data[0].label,
+          date: data[0].date,
+          index: 0
+        };
+
+        // Select elements
+        self.xLabels = self.g.selectAll('.xLabel').data(x.ticks(self.numXticks));
+        self.linePath = self.g.selectAll('path.line').data(data);
+        self.datapoints = self.g.selectAll('.datapoint').data(data);
+        self.circles = self.g.selectAll('.circle').data(data);
+        self.circleAreas = self.g.selectAll('.circleArea').data(data);
+        self.xAxis = self.g.selectAll('path.axis').data(data);
+        self.displayValue = self.g.selectAll('.displayVal').data([self.currentPos]);
+        
+        // Add any new datapoints
+        self.xLabels.enter().append('text')
+          .attr("class", "xLabel axis");
+        self.datapoints
+          .enter().append("g");
+        self.circles
+          .enter().append('circle');
+        self.circleAreas
+          .enter().append('circle');
+
+
+        // Remove old marker and add a new one (so it is always on top)
+        self.marker.remove();
+        self.marker = self.g.append("circle")
+          .data([self.currentPos])
+          .attr('class', 'marker stroke-foreground data0');
+
+        // Remove any extra datapoints
+        self.xLabels.exit().remove();
+        self.datapoints.exit().remove();
+        self.circles.exit().remove();
+        self.circleAreas.exit().remove();
+
+        // Reset styles and animations
+        self._setElementSizes();
+        self._setupTouchAnimate();
+        self._animateMarker();
+        self.animate();
 
       },
       reset: function(){
