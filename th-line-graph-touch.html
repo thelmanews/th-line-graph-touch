@@ -13,7 +13,7 @@ Element providing solution to no problem in particular.
 @status alpha
 @homepage http://polymerlabs.github.io/th-line-graph-touch
 -->
-<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="numXticks fillArea animateStyle dateType textColor yAxisMax yAxisMin valueSize valuePosition">
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="numXticks fillArea animateStyle dateType textColor yAxisMax yAxisMin valueSize valuePosition animateMarker">
 
   <template>
     <core-style ref="theme"> </core-style>
@@ -36,20 +36,38 @@ Element providing solution to no problem in particular.
 
     Polymer({
       chartData: [
-            {'label': 'December 3, 2011', 'value': 104.5, 'display_value': '$104.5'},
-            {'label': 'March 30, 2012', 'value': 108.5, 'display_value': '$108.5'},
-            {'label': 'August 21, 2013', 'value': 107.5, 'display_value': '$107.5'},
-            {'label': 'January 1, 2015', 'value': 112.1, 'display_value': '$112.1'}
+            {"label": "December 3, 2011", "value": 104, "display_value": "$104"},
+            {"label": "March 30, 2012", "value": 106, "display_value": "$106"},
+            {"label": "August 21, 2013", "value": 107, "display_value": "$107"},
+            {"label": "January 1, 2014", "value": 110, "display_value": "$110"},
+            {"label": "January 1, 2015", "value": 112, "display_value": "$112"}
           ],
+      /**
+       * fillArea determines whether the area under the line is filled or not
+       * @type {Boolean}
+       */
       fillArea: false,
+      /**
+       * valuePosition can be displayed on the 'left' or 'right' of the chart
+       * @type {String}
+       */
       valuePosition: 'left',
+      /**
+       * dateType is the display format for the dates on the x-axis
+       * @type {String}
+       * @options: "DD-MM-YY", "DD-MM", "DD-Mth", "MM-YY", "Mth-YY", "YY", "YYYY"
+       */
       dateType: "YYYY",
+      /**
+       * animateMarker slides the marker through the line, if true
+       * @type {Boolean}
+       */
+      animateMarker: true,
       init: function() {
         var self = this;
 
         // Set up dimensions
         self.dims = self.setupDimensions(self);
-        console.log(self.dims);
         self.dims.height += self.dims.margin.bottom + self.dims.margin.top;
         self.dims.margin.right = 10; 
         self.dims.margin.left = 15;
@@ -100,6 +118,9 @@ Element providing solution to no problem in particular.
 
         self.numXticks = Math.min(5, self.chartData.length);
       },
+      /**
+       * [_parseValues parses through the values given in chartData to extract the value, prefix and suffix in display_values, used for interpolating numbers when datapoints are dragged
+       */
       _parseValues: function(){
         var self = this,
             valueRegex = /(\D*)(\d*\.?\d*)(\D*)/, // Matchgroups: 1) prefix 2) value 3) suffix
@@ -130,6 +151,10 @@ Element providing solution to no problem in particular.
 
         
       },
+      /**
+       * _setupElements creates all the elements required for the line graph, unstyled
+       * @return {[type]} [description]
+       */
       _setupElements: function(){
         var self = this,
             width = self.dims.width,
@@ -168,7 +193,6 @@ Element providing solution to no problem in particular.
         // Line path
         self.linePath = g.append("path").data(data)
             .attr("class", "line data0 no-fill");
-            
 
         // Datapoints
         self.datapoints = g.selectAll('.datapoint')
@@ -199,6 +223,9 @@ Element providing solution to no problem in particular.
           .style('fill', self.textColor);
 
       },
+      /**
+       * _setElementSizes styles and sets starting position of all the elements in the chart
+       */
       _setElementSizes: function(){
         var self = this,
             width = self.dims.width,
@@ -231,7 +258,6 @@ Element providing solution to no problem in particular.
             .call(xAxis).style('stroke', self.textColor)
             .style('stroke', self.textColor);
 
-
           // Create x-labels
           self.xLabels = self.g.selectAll('.axis')
             .selectAll('text')
@@ -250,8 +276,6 @@ Element providing solution to no problem in particular.
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
             .text(function(d){return self.valPrefix + d.value + self.valSuffix });
-            
-
           
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
@@ -336,6 +360,9 @@ Element providing solution to no problem in particular.
             .on('up', this.remove);
 
       },
+      /**
+       * _setupTouchAnimate adds the ability to drag datapoints around
+       */
       _setupTouchAnimate: function(){
         var self = this,
             x = self.x,
@@ -351,13 +378,14 @@ Element providing solution to no problem in particular.
             self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
+            self.currentPos.lastValue = d.valueDisplayed;
 
             self.animateMarker = false; // Cancels the automated movement of marker
             self.marker.remove();
             
             // Update circles and value to reflect touched point
             self.circles
-              .attr('stroke-width', function(d,i){ return i === self.currentPos.index ? 3 : 1})
+              .attr('stroke-width', function(d,i){ return i === self.currentPos.index  ? 3 : 1})
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
@@ -441,7 +469,7 @@ Element providing solution to no problem in particular.
           // Return value back to normal
           self.displayValue
             .transition().duration(400)
-            .tween('text', function(d){              
+            .tween('text', function(d){ 
                 var i = d3.interpolate(d.lastValue, d.value);
                 return function(t) {
                   this.textContent = self.valPrefix + (i(t)).toFixed(self.decimalPlaces) + self.valSuffix;
@@ -452,14 +480,17 @@ Element providing solution to no problem in particular.
         self.datapoints.call(drag);
         self.circles.call(drag);
       },
+      /**
+       * _animateMarker sets the marker in motion to slide through each point in the line graph
+       * @return {[type]} [description]
+       */
       _animateMarker: function(){
         var self = this,
             data = self.chartData
             x = self.x,
             y = self.y;
 
-          self.animateMarker = true; // While true, marker will move along line
-
+        if (self.animateMarker){
           var markerLine = d3.svg.line()
               .x(function(d,i) { return x(d.date); })
               .y(function(d,i) { return -y(d.value); })
@@ -472,7 +503,10 @@ Element providing solution to no problem in particular.
               .attr('d', markerLine([data[0],data[0]]));
    
           transition(markerPath);  
-          
+          /**
+           * transition determines the steps the marker to move through the line's segments
+           * @param  {[type]} path [the path through which the element should slide]
+           */
           function transition(path) {
 
             self.marker.transition()
@@ -512,10 +546,14 @@ Element providing solution to no problem in particular.
 
                 });
 
-
+            }
           
           }
 
+          /**
+           * pulseEffect creates the pulse animation for the marker at every point it stops
+           * @param  {svg} element [the element that gets the pulse animation]
+           */
           function pulseEffect(element){
             d3.select(element)
                 .transition().delay(function(d){
@@ -535,7 +573,11 @@ Element providing solution to no problem in particular.
                 });
           }
 
-
+          /**
+           * translateAlong is called for each segment the marker slides through
+           * @param  {[type]} path [the path through which the element should slide]
+           * @return {[string]}      the value for the element's "transform" property
+           */
           function translateAlong(path) {
             var l = path.getTotalLength();
             return function(i) {
@@ -547,6 +589,10 @@ Element providing solution to no problem in particular.
           }
         
       },
+      /**
+       * _resetCurrentPosition resets the currentPos attribute values equal to the first data point's values
+       * @return {[type]} [description]
+       */
       _resetCurrentPosition: function(){
         var self = this;
 
@@ -557,6 +603,9 @@ Element providing solution to no problem in particular.
           index: 0
         };
       },
+      /**
+       * animate transitions the element's to their final states and initiates the marker animation
+       */
       animate: function(){
         var self = this,
             g = self.g, 
@@ -594,7 +643,9 @@ Element providing solution to no problem in particular.
             .attr('r', 5)
             .each('end', self._animateMarker());
       },
-
+      /**
+       * resize is called when chartHeight or chartWidth are changed, and adjusts the elements sizes and scales accordingly
+       */
       resize: function(){
         var self = this;
 
@@ -618,6 +669,9 @@ Element providing solution to no problem in particular.
         self._animateMarker();
         self.animate();
       },
+      /**
+       * updateData is called when chartData changes and updates the element sizes and scales accordingly
+       */
       updateData: function(){
         var self = this,
             data = self.chartData;
@@ -647,7 +701,6 @@ Element providing solution to no problem in particular.
         self.circleAreas
           .enter().append('circle');
 
-
         // Remove old marker and add a new one (so it is always on top)
         self.marker.remove();
         self.marker = self.g.append("circle")
@@ -667,6 +720,9 @@ Element providing solution to no problem in particular.
         self.animate();
 
       },
+      /**
+       * reset sets the chart back to it's initial position before it was animated
+       */
       reset: function(){
         var self = this;
         
