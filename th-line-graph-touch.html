@@ -49,6 +49,8 @@ Element providing solution to no problem in particular.
 
         // Set up dimensions
         self.dims = self.setupDimensions(self);
+        console.log(self.dims);
+        self.dims.height += self.dims.margin.bottom + self.dims.margin.top;
         self.dims.margin.right = 10; 
         self.dims.margin.left = 15;
         self.dims.width -= self.dims.margin.left + self.dims.margin.right;
@@ -75,7 +77,7 @@ Element providing solution to no problem in particular.
         // Set y-scale
         self.y = d3.scale.linear().domain([self.minValue, self.maxValue]).range([self.dims.margin.left, 
                 (self.dims.height-(self.dims.margin.top + self.dims.margin.bottom))]);
-
+        
         // Set date format
         var DATE_FORMATS = {
                 "DD-MM-YY": "%d-%m-%y",
@@ -248,9 +250,7 @@ Element providing solution to no problem in particular.
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
             .text(function(d){return self.valPrefix + d.value + self.valSuffix });
-            console.log(valueSize);
-            console.log(height);
-            console.log(self.dims.margin.top);
+            
 
           
           // Line data, starting state (raise style animation)
@@ -324,7 +324,6 @@ Element providing solution to no problem in particular.
             .attr('stroke-opacity', 1)
             .style("fill", self.color)
             .style("stroke", self.textColor)
-
             .attr("transform", function(d){
               return "translate(" + x(d.date) +","+ -y(d.value)+ ")"; 
             })
@@ -377,6 +376,7 @@ Element providing solution to no problem in particular.
           .on('dragend', dragEnd);
         
         function dragMove(d,i){
+          d3.event.sourceEvent.stopPropagation();
           // Determine the X and Y position
           var yPos = self.startY - d3.event.y;
           var xPos = self.startX - d3.event.x;
@@ -457,8 +457,6 @@ Element providing solution to no problem in particular.
             x = self.x,
             y = self.y;
 
-
-          
           self.animateMarker = true; // While true, marker will move along line
 
           var markerLine = d3.svg.line()
@@ -487,18 +485,11 @@ Element providing solution to no problem in particular.
                   self.currentPos.label = data[d.index].label;
 
                   // Pulse effect when marker stops at a point
-                  d3.select(this)
-                      .transition().duration(750)
-                        .attr('r', 10)
-                        .attr('stroke-width', 8)
-                        .attr('stroke-opacity', 0.7)
-                      .transition().duration(750)
-                        .attr('r', 5)
-                        .attr('stroke-width', 3)
-                        .attr('stroke-opacity', 1);
+                  pulseEffect(this);
 
                   // Check if it has reached the end
                   if (d.index == data.length-1 || !self.animateMarker){
+                    d.index++; // Increment counter
                     return null;
 
                   // If not, move the marker to the next point
@@ -519,8 +510,30 @@ Element providing solution to no problem in particular.
                   }
 
                 });
+
+
           
           }
+
+          function pulseEffect(element){
+            d3.select(element)
+                .transition().delay(function(d){
+                  return d.index === data.length ? 500 : 0;
+                }).duration(750)
+                  .attr('r', 10)
+                  .attr('stroke-width', 8)
+                  .attr('stroke-opacity', 0.7)
+                .transition().duration(750)
+                  .attr('r', 5)
+                  .attr('stroke-width', 3)
+                  .attr('stroke-opacity', 1)
+                .each('end', function(d){
+                  if (d.index === data.length){
+                    pulseEffect(this);
+                  }
+                });
+          }
+
 
           function translateAlong(path) {
             var l = path.getTotalLength();
