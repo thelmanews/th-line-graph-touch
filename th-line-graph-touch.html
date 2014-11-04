@@ -405,7 +405,8 @@ Element providing solution to no problem in particular.
           .on('dragend', dragEnd);
         
         function dragMove(d,i){
-          d3.event.sourceEvent.stopPropagation();
+          d3.event.sourceEvent.stopPropagation(); // Prevents side swiping of card
+          d3.event.sourceEvent.preventDefault(); // Prevents vertical swiping of browser
           // Determine the X and Y position
           var yPos = self.startY - d3.event.y;
           var xPos = self.startX - d3.event.x;
