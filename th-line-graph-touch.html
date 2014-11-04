@@ -119,7 +119,7 @@ Element providing solution to no problem in particular.
         self.numXticks = Math.min(5, self.chartData.length);
       },
       /**
-       * [_parseValues parses through the values given in chartData to extract the value, prefix and suffix in display_values, used for interpolating numbers when datapoints are dragged
+       * _parseValues parses through the values given in chartData to extract the value, prefix and suffix in display_values, used for interpolating numbers when datapoints are dragged
        */
       _parseValues: function(){
         var self = this,
@@ -143,11 +143,11 @@ Element providing solution to no problem in particular.
           }
 
           if(i===0){
-            self.decimalPlaces = datapoint.decimalPlaces;
             self.valPrefix = datapoint.valPrefix;
             self.valSuffix = datapoint.valSuffix;
           }
         }
+        self.decimalPlaces = d3.max(self.chartData, function(d){ return d.decimalPlaces});
 
         
       },
@@ -275,7 +275,7 @@ Element providing solution to no problem in particular.
             .attr("x", function(){ return self.valuePosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
-            .text(function(d){return self.valPrefix + d.value + self.valSuffix });
+            .text(function(d){return self.valPrefix + d.value.toFixed(self.decimalPlaces) + self.valSuffix });
           
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
