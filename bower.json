@@ -8,9 +8,7 @@
   ],
   "main": "th-line-graph-touch.html",
   "dependencies": {
-    "polymer": "Polymer/polymer#^0.4.0"
-  },
-  "devDependencies": {
-    "polymer-test-tools": "Polymer/polymer-test-tools#^0.4.0"
+    "polymer": "Polymer/polymer#~0.5.1",
+    "th-d3-chart": "https://github.com/thelmanews/th-d3-chart.git"
   }
 }
