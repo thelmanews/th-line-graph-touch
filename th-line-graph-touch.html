@@ -13,7 +13,7 @@ Element providing solution to no problem in particular.
 @status alpha
 @homepage http://polymerlabs.github.io/th-line-graph-touch
 -->
-<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="numXticks fillArea animateStyle dateType textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input">
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="fillArea animateStyle dateType textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input">
 
   <template>
     <core-style ref="theme"> </core-style>
@@ -22,6 +22,11 @@ Element providing solution to no problem in particular.
         font-size: 0.7em;
         font-weight: 300;
       }
+      .xAxis path {
+        fill: none;
+        stroke-width: 2px;
+      }
+
     </style>
 
     <svg id="chart"></svg> 
@@ -31,16 +36,17 @@ Element providing solution to no problem in particular.
   <script>
     // TODO
     // - make it work for multiple lines
+    // - angle / wrap long labels
     // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
     // - Add option for tooltips or remove
 
     Polymer({
       chartData: [
-            {"label": "December 3, 2011", "value": 104, "display_value": "$104"},
-            {"label": "March 30, 2012", "value": 106, "display_value": "$106"},
-            {"label": "August 21, 2013", "value": 107, "display_value": "$107"},
-            {"label": "January 1, 2014", "value": 110, "display_value": "$110"},
-            {"label": "January 1, 2015", "value": 112, "display_value": "$112"}
+            {"label": "2011", "value": 104, "display_value": "$104"},
+            {"label": "2012", "value": 106, "display_value": "$106"},
+            {"label": "2013", "value": 107, "display_value": "$107"},
+            {"label": "2014", "value": 110, "display_value": "$110"},
+            {"label": "2015", "value": 112, "display_value": "$112"}
           ],
       /**
        * fillArea determines whether the area under the line is filled or not
@@ -57,7 +63,7 @@ Element providing solution to no problem in particular.
        * @type {String}
        * @options: "DD-MM-YY", "DD-MM", "DD-Mth", "MM-YY", "Mth-YY", "YY", "YYYY"
        */
-      dateType: "YYYY",
+      // dateType: "YYYY",
       /**
        * animateMarker slides the marker through the line, if true
        * @type {Boolean}
@@ -96,27 +102,9 @@ Element providing solution to no problem in particular.
         self.y = d3.scale.linear().domain([self.minValue, self.maxValue]).range([self.dims.margin.left, 
                 (self.dims.height-(self.dims.margin.top + self.dims.margin.bottom))]);
         
-        // Set date format
-        var DATE_FORMATS = {
-                "DD-MM-YY": "%d-%m-%y",
-                "DD-MM": "%d-%m",
-                "DD-Mth": "%d-%b",
-                "MM-YY": "%m-%y",
-                "Mth-YY": "%b-%y",
-                "YY": "\'%y",
-                "YYYY": "%Y"
-              };
-        self.dateFormat = DATE_FORMATS[self.dateType] || "%Y";
-
-        // Create date object for each label
-        self.chartData.forEach(function(d){
-          d.date = Date.parse(d.label);
-        })
-
         // Set x-scale
-        self.x = d3.time.scale().domain(d3.extent(self.chartData, function(d){return d.date;})).range([self.dims.margin.left, self.dims.width ]);
-
-        self.numXticks = Math.min(5, self.chartData.length);
+        self.x = d3.scale.ordinal().rangePoints([self.dims.margin.left, self.dims.width], 0);
+        self.x.domain(self.chartData.map(function(d,i){return d.label}));
       },
       /**
        * _parseValues parses through the values given in chartData to extract the value, prefix and suffix in display_values, used for interpolating numbers when datapoints are dragged
@@ -167,7 +155,7 @@ Element providing solution to no problem in particular.
         self.currentPos = { 
           value: data[0].valueDisplayed,
           label: data[0].label,
-          date: data[0].date,
+          // date: data[0].date,
           index: 0
         };
 
@@ -247,12 +235,11 @@ Element providing solution to no problem in particular.
             .attr("transform", "translate(0,"+ (self.dims.height-self.dims.margin.top) +")");
 
 
-          // Create x-axis
+        // Create x-axis
         var xAxis = d3.svg.axis()
           .scale(x)
-          .ticks(self.numXticks)
-          .tickFormat(d3.time.format(self.dateFormat))
-          .tickSize(0);
+          .tickSize(0)
+          .orient("bottom");
 
           self.xAxis
             .call(xAxis).style('stroke', self.textColor)
@@ -279,23 +266,23 @@ Element providing solution to no problem in particular.
           
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
-            .x(function(d) { return x(d.date); })
+            .x(function(d,i) { return x(d.label); })
             .y(0).interpolate(self.lineStyle);
 
           // Line data, ending state (raise style animation)
           self.line = d3.svg.line()
-            .x(function(d) { return x(d.date); })
+            .x(function(d,i) { return x(d.label); })
             .y(function(d) { return -y(d.value); })
             .interpolate(self.lineStyle);
 
           // Data for fill area, starting state (raise style animation)
           self.areaDataStart = d3.svg.area()
-            .x(function(d) { return x(d.date); })
+            .x(function(d,i) { return x(d.label); })
             .y1(0).interpolate(self.lineStyle);
 
           // Data for fill area, ending state (raise style animation)
           self.areaData = d3.svg.area()
-            .x(function(d) { return x(d.date); })
+            .x(function(d,i) { return x(d.label); })
             .y1(function(d) { return -y(d.value); })
             .interpolate(self.lineStyle);
 
@@ -323,7 +310,7 @@ Element providing solution to no problem in particular.
           // Set circles position
           self.datapoints
             .attr('class', 'datapoint data0')
-            .attr("cx", function(d) { return  x(d.date); })
+            .attr("cx", function(d,i) { return  x(d.label); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
           self.circles
@@ -331,14 +318,14 @@ Element providing solution to no problem in particular.
             .attr("r", 0)
             .style("fill", self.color)
             .style("stroke", self.color)
-            .attr("cx", function(d) { return  x(d.date); })
+            .attr("cx", function(d,i) { return  x(d.label); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
           self.circleAreas
             .attr('class', 'circleArea')
             .attr('r', 25)
             .attr('opacity', 0)
-            .attr("cx", function(d) { return  x(d.date); })
+            .attr("cx", function(d,i) { return  x(d.label); })
             .attr("cy", function(d) { return -1 * y(d.value); });
 
           self.marker
@@ -348,8 +335,8 @@ Element providing solution to no problem in particular.
             .attr('stroke-opacity', 1)
             .style("fill", self.color)
             .style("stroke", self.textColor)
-            .attr("transform", function(d){
-              return "translate(" + x(d.date) +","+ -y(d.value)+ ")"; 
+            .attr("transform", function(d,i){
+              return "translate(" + x(d.label) +","+ -y(d.value)+ ")"; 
             })
             .on('down', function(data){
               self.circles
@@ -375,7 +362,7 @@ Element providing solution to no problem in particular.
         self.datapoints
           .on('down', function(d,i){
             self.currentPos.value = d.valueDisplayed;
-            self.currentPos.date = d.date;
+            // self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
             self.currentPos.lastValue = d.valueDisplayed;
@@ -413,7 +400,7 @@ Element providing solution to no problem in particular.
           
           // Create line data for dragged line
           var dragLine = d3.svg.line()
-              .x(function(d, index) { return i === index ? -xPos : x(d.date); })
+              .x(function(d, index) { return i === index ? -xPos : x(d.label); })
               .y(function(d,index) { return i === index ? -yPos : -y(d.value); })
               .interpolate(self.lineStyle);
           
@@ -424,7 +411,7 @@ Element providing solution to no problem in particular.
           // Adjust fillArea if option is true
           if (self.fillArea){
             var dragArea = d3.svg.area()
-              .x(function(d,index) { return i === index ? -xPos : x(d.date); })
+              .x(function(d,index) { return i === index ? -xPos : x(d.label); })
               .y1(function(d, index) { return i === index ? -yPos : -y(d.value); })
               .interpolate(self.lineStyle);
             self.areaPath
@@ -493,7 +480,7 @@ Element providing solution to no problem in particular.
 
         if (self.animateMarker){
           var markerLine = d3.svg.line()
-              .x(function(d,i) { return x(d.date); })
+              .x(function(d) { return x(d.label); })
               .y(function(d,i) { return -y(d.value); })
               .interpolate(self.lineStyle);
           
@@ -503,21 +490,21 @@ Element providing solution to no problem in particular.
               .attr("stroke-width", 0)
               .attr('d', markerLine([data[0],data[0]]));
    
-          transition(markerPath);  
+          transition(markerPath, 0);  
           /**
            * transition determines the steps the marker to move through the line's segments
            * @param  {[type]} path [the path through which the element should slide]
            */
-          function transition(path) {
+          function transition(path, delay) {
 
             self.marker.transition()
-                .delay(1500)
+                .delay(delay)
                 .duration(800)
                 .attrTween("transform", translateAlong(path.node()))
                 .each("end", function(d,i){                   
                   // Update current position
                   self.currentPos.value = data[d.index].value;
-                  self.currentPos.date = data[d.index].date;
+                  // self.currentPos.date = data[d.index].date;
                   self.currentPos.label = data[d.index].label;
 
                   // Pulse effect when marker stops at a point
@@ -542,7 +529,7 @@ Element providing solution to no problem in particular.
                           };
                       })
 
-                    return transition(markerPath);  // Recursively call function for next transition
+                    return transition(markerPath, 1500);  // Recursively call function for next transition
                   }
 
                 });
@@ -600,7 +587,7 @@ Element providing solution to no problem in particular.
         self.currentPos = { 
           value: self.chartData[0].value,
           label: self.chartData[0].label,
-          date: self.chartData[0].date,
+          // date: self.chartData[0].date,
           index: 0
         };
       },
@@ -619,7 +606,7 @@ Element providing solution to no problem in particular.
         // Fade in fillArea if option is chosen
         if (self.fillArea){ 
           self.areaPath  
-              .transition().duration(1000)
+              .transition().duration(800)
               .ease("linear")
               .attr("stroke-dashoffset", 0)
             .attr("d", self.areaData)
@@ -629,18 +616,18 @@ Element providing solution to no problem in particular.
         // Raise line
         self.linePath
           .transition()
-            .duration(function(){ return self.fillArea ? 5000 : 1000;})
+            .duration(function(){ return self.fillArea ? 5000 : 800;})
             .attr("d", self.line(data))
             .attr("opacity", 1);
 
         // Show datapoints
         self.circles
-          .transition().delay(1000).duration(500)
+          .transition().delay(650).duration(500)
             .attr('r', 5);
 
         // Show marker and animate
         self.marker
-          .transition().delay(1000).duration(500)
+          .transition().delay(650).duration(500)
             .attr('r', 5)
             .each('end', self._animateMarker());
       },
@@ -684,7 +671,7 @@ Element providing solution to no problem in particular.
         self._resetCurrentPosition();
 
         // Select elements
-        self.xLabels = self.g.selectAll('.xLabel').data(x.ticks(self.numXticks));
+        self.xLabels = self.g.selectAll('.xLabel');
         self.linePath = self.g.selectAll('path.line').data(data);
         self.datapoints = self.g.selectAll('.datapoint').data(data);
         self.circles = self.g.selectAll('.circle').data(data);
