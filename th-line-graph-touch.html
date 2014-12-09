@@ -506,7 +506,9 @@ Element providing solution to no problem in particular.
                 .delay(delay)
                 .duration(800)
                 .attrTween("transform", translateAlong(path.node()))
-                .each("end", function(d,i){                   
+                .each("end", function(d,i){   
+                console.log(self.currentPos.value);                
+                console.log(d)
                   // Update current position
                   self.currentPos.value = data[d.index].value;
                   // self.currentPos.date = data[d.index].date;
@@ -592,7 +594,6 @@ Element providing solution to no problem in particular.
         self.currentPos = { 
           value: self.chartData[0].value,
           label: self.chartData[0].label,
-          // date: self.chartData[0].date,
           index: 0
         };
       },
@@ -720,11 +721,15 @@ Element providing solution to no problem in particular.
         var self = this;
         
         // Reset marker
-        self.animateMarker = false;
+        self.animateMarker = true;
         self.marker.remove();
         self.marker = self.g.append("circle")
           .data([self.currentPos])
           .attr('class', 'marker stroke-foreground data0');
+
+        // Reset current position of marker
+        self._resetCurrentPosition();
+        console.log(self.currentPos)
         
         // Reset element sizes
         self._setElementSizes();
