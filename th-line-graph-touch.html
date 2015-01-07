@@ -13,7 +13,7 @@ Element providing solution to no problem in particular.
 @status alpha
 @homepage http://polymerlabs.github.io/th-line-graph-touch
 -->
-<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="fillArea animateStyle textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input">
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="fillArea animateStyle textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input tooltips">
 
   <template>
     <core-style ref="theme"> </core-style>
@@ -23,13 +23,17 @@ Element providing solution to no problem in particular.
         height: 300px;
       }
       
-     .xLabel, .label {
+     .xLabel {
         font-size: 0.7em;
         font-weight: 300;
       }
       .xAxis path {
         fill: none;
         stroke-width: 2px;
+      }
+
+      .tip {
+        font-weight: 400;
       }
 
     </style>
@@ -43,7 +47,6 @@ Element providing solution to no problem in particular.
     // - make it work for multiple lines
     // - angle / wrap long labels
     // - Make it work with different line styles (the curved ones get the same animation bc the markerLine is different)
-    // - Add option for tooltips or remove
 
     Polymer({
       chartData: [
@@ -63,11 +66,10 @@ Element providing solution to no problem in particular.
        */
       valuePosition: 'left',
       /**
-       * dateType is the display format for the dates on the x-axis
-       * @type {String}
-       * @options: "DD-MM-YY", "DD-MM", "DD-Mth", "MM-YY", "Mth-YY", "YY", "YYYY"
+       * tooltips will remove the large value in the background and show small values above each point
+       * @type {Boolean}
        */
-      // dateType: "YYYY",
+      tooltips: true,
       /**
        * animateMarker slides the marker through the line, if true
        * @type {Boolean}
@@ -206,13 +208,13 @@ Element providing solution to no problem in particular.
           .data([self.currentPos])
           .attr('class', 'marker stroke-foreground data0');
           
-        // TODO: is this needed?
         // Tooltips 
         self.tips = g.selectAll('.tip')
           .data(data)
           .enter().append('text')
           .attr('class', 'tip label fill-foreground')
           .attr('text-anchor', 'middle')
+          .attr('opacity', function(){return self.tooltips ? 1 : 0})
           .style('fill', self.textColor);
 
       },
@@ -260,7 +262,9 @@ Element providing solution to no problem in particular.
           // Set display value and it's position/size
           self.displayValue
             .attr("class", "fill-foreground displayVal")
-            .attr("opacity", 0.7)
+            .attr("opacity", function(){
+              return self.tooltips ? 0 : 0.7; // hide the large number if all values are selected
+            })
             .style("fill", self.textColor)
             .style("stroke", self.textColor) // this can start as 0 and fade in after datapoint and joystick appear
             .attr("text-anchor", function(){ return self.valuePosition === "left" ? "start" : "end"; })
@@ -371,7 +375,8 @@ Element providing solution to no problem in particular.
             self.currentPos.label = d.label;
             self.currentPos.index = i;
             self.currentPos.lastValue = d.valueDisplayed;
-
+            self.currentTip = self.tips.filter(function(d, i) { return i === self.currentPos.index; });
+            
             self._animateMarker = false; // Cancels the automated movement of marker
             self.marker.remove();
             
@@ -382,6 +387,7 @@ Element providing solution to no problem in particular.
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
             self.displayValue.text(function(d){ return self.valPrefix + d.value + self.valSuffix;})
+            self.currentTip.text(function(d){ return self.valPrefix + self.currentPos.value + self.valSuffix;})
 
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
@@ -433,7 +439,10 @@ Element providing solution to no problem in particular.
           self.currentPos.lastValue = y.invert(yPos);
           self.currentPos.value = y.invert(yPos);
           // Update display value
-          self.displayValue.text(function(d){return self.valPrefix + d.value.toFixed(self.decimalPlaces) + self.valSuffix;}) // TODO: figure out how to do with decimals and display value
+          self.displayValue.text(function(d){return self.valPrefix + d.value.toFixed(self.decimalPlaces) + self.valSuffix;});
+          self.currentTip
+            .text(function(d){return self.valPrefix + self.currentPos.value.toFixed(self.decimalPlaces) + self.valSuffix;})
+            .attr('transform', 'translate('+d3.event.x+','+d3.event.y+')');
 
         } 
 
@@ -467,6 +476,17 @@ Element providing solution to no problem in particular.
                   this.textContent = self.valPrefix + (i(t)).toFixed(self.decimalPlaces) + self.valSuffix;
                 };
             })
+
+          self.currentTip
+            .transition().ease('elastic' , 1 , .7).duration(800)
+            .attr('transform', 'translate(0,0)')
+            .tween('text', function(d){ 
+                var i = d3.interpolate(self.currentPos.lastValue, self.currentPos.value);
+                return function(t) {
+                  this.textContent = self.valPrefix + (i(t)).toFixed(self.decimalPlaces) + self.valSuffix;
+                };
+            })
+
 
         }   
         self.datapoints.call(drag);
@@ -611,7 +631,7 @@ Element providing solution to no problem in particular.
         // Fade in fillArea if option is chosen
         if (self.fillArea){ 
           self.areaPath  
-              .transition().duration(800)
+              .transition().duration(900)
               .ease("linear")
               .attr("stroke-dashoffset", 0)
             .attr("d", self.areaData)
@@ -621,7 +641,7 @@ Element providing solution to no problem in particular.
         // Raise line
         self.linePath
           .transition()
-            .duration(function(){ return self.fillArea ? 5000 : 800;})
+            .duration(function(){ return self.fillArea ? 5000 : 900;})
             .attr("d", self.line(data))
             .attr("opacity", 1);
 
@@ -630,12 +650,50 @@ Element providing solution to no problem in particular.
           .transition().delay(650).duration(500)
             .attr('r', 5);
 
-        // Show marker and animate
-        self.marker
-          .transition().delay(650).duration(500)
-            .attr('r', 5)
-            .each('end', self._moveMarker());
+        if(self.tooltips){
+          // Show tooltips
+          self._showTooltips();
+        } else {
+          // Show marker and animate
+          self.marker
+            .transition().delay(750).duration(500)
+              .attr('r', 5)
+              .each('end', self._moveMarker());
+        }
+
       },
+      _showTooltips: function(){
+            var self = this,
+                g = self.g,
+                data = self.chartData,
+                x = self.x,
+                y = self.y;
+            
+            var firstValueLength = data[0].display_value.length,
+                lastValueLength = data[data.length - 1].display_value.length;
+              
+            // If last val is long, increase right margin
+            self.dims.margin.right += lastValueLength > 5 ? (lastValueLength - 5)*8 : 0; 
+
+            // If first val is long, shift label (increasing margin left is not ideal because of y-Axis)
+            if (firstValueLength > 4) { 
+              self.tips
+                .attr('transform',function(d,i){
+                  var offset = i === 0 ? (firstValueLength - 4)*5 : 0;
+                  return "translate("+offset+",0)";
+                });
+            }
+
+            self.tips          
+              .text( function(d){return d.display_value ? d.display_value : ""; })
+              .attr("x", function(d) { return  x(d.label); })
+              .attr("y", function(d) { return -y(d.value) - 15; })
+              .attr('opacity', 0)
+              .transition()
+              .delay(900)
+              .duration(300)
+              .attr('opacity', 1);
+          },
       /**
        * resize is called when chartHeight or chartWidth are changed, and adjusts the elements sizes and scales accordingly
        */
@@ -680,6 +738,7 @@ Element providing solution to no problem in particular.
         self.linePath = self.g.selectAll('path.line').data(data);
         self.datapoints = self.g.selectAll('.datapoint').data(data);
         self.circles = self.g.selectAll('.circle').data(data);
+        self.tips = self.g.selectAll('.tip').data(data);
         self.circleAreas = self.g.selectAll('.circleArea').data(data);
         self.xAxis = self.g.selectAll('path.axis').data(data);
         self.displayValue = self.g.selectAll('.displayVal').data([self.currentPos]);
@@ -693,6 +752,8 @@ Element providing solution to no problem in particular.
           .enter().append('circle');
         self.circleAreas
           .enter().append('circle');
+        self.tips
+          .enter().append('text');
 
         // Remove old marker and add a new one (so it is always on top)
         self.marker.remove();
@@ -705,6 +766,7 @@ Element providing solution to no problem in particular.
         self.datapoints.exit().remove();
         self.circles.exit().remove();
         self.circleAreas.exit().remove();
+        self.tips.exit().remove();
 
         // Reset styles and animations
         self._setElementSizes();
@@ -740,9 +802,9 @@ Element providing solution to no problem in particular.
           .attr("d", function(){ return self.fillArea ? self.line(self.chartData) : self.startingLine(self.chartData);})
             .attr("opacity", function(){ return self.fillArea ? 0 : 1;})
 
+        // Reset tooltips
+        self.tips.attr('opacity', 0);
       }
-
-
 
     });
 
