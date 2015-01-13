@@ -804,7 +804,36 @@ Element providing solution to no problem in particular.
 
         // Reset tooltips
         self.tips.attr('opacity', 0);
-      }
+      },
+      getMetaData: function() {
+            return {
+            "name": "th-line-graph-touch",
+            "description": "Thelma Line Graph",
+            "category":"chart",
+            "version": "0.0.1",
+            "thumbnail":"interactive-line.jpg",  
+            "tags":["chart", "line"],
+            "fields":[{ "name":"label", "type":"string"},
+                            { "name":"value", "type":"int"},
+                            { "name":"display_value", "type":"string"}
+            ],
+            "inputAttr": {
+              "chartData":{"friendly":"Data", "type":"table-repeating","rows":2, 
+                "fields":{
+                  "label":{"friendly":"Label", "type":"string", "default":"2010"},
+                  "value":{"friendly":"Value", "type":"int", "default":100},
+                  "display_value":{"friendly":"Display Value", "type":"string", "default":"$100"}
+                },
+                "default":[
+                  {"label": "Q1 2014", "value": 104, "display_value": "$104"},
+                  {"label": "Q2 2014", "value": 106, "display_value": "$106"},
+                  {"label": "Q3 2014", "value": 110, "display_value": "$107"},
+                  {"label": "Q4 2014", "value": 108, "display_value": "$110"}
+                ]
+              }
+            }
+          }
+         }
 
     });
 
