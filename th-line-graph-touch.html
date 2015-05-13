@@ -33,7 +33,11 @@ Element providing solution to no problem in particular.
       }
 
       .tip {
-        font-weight: 400;
+        /*font-weight: 400;*/
+      }
+
+      .no-stroke {
+        stroke: none;
       }
 
     </style>
@@ -69,7 +73,7 @@ Element providing solution to no problem in particular.
        * tooltips will remove the large value in the background and show small values above each point
        * @type {Boolean}
        */
-      tooltips: false,
+      tooltips: true,
       /**
        * animateMarker slides the marker through the line, if true
        * @type {Boolean}
