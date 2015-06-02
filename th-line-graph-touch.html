@@ -73,7 +73,7 @@ Element providing solution to no problem in particular.
        * tooltips will remove the large value in the background and show small values above each point
        * @type {Boolean}
        */
-      tooltips: true,
+      tooltips: false,
       /**
        * animateMarker slides the marker through the line, if true
        * @type {Boolean}
@@ -125,14 +125,18 @@ Element providing solution to no problem in particular.
             valueRegex = /(\D*)(\d*\.?\d*)(\D*)/, // Matchgroups: 1) prefix 2) value 3) suffix
             dataLength = self.chartData.length;
             
+
         // Split display value into pieces to separate out suffix/prefix and detect decimal places    
         for (var i=0; i<dataLength; i++){
           var datapoint = self.chartData[i];
           if (datapoint.display_value){
             datapoint.valPrefix = datapoint.display_value.replace(',','').match(valueRegex)[1];
             datapoint.valSuffix = datapoint.display_value.replace(',','').match(valueRegex)[3];
+            // If commas are given in any display value, apply them across the board when needed by setting this property true
+            self._displayCommas = self._displayCommas || datapoint.display_value.indexOf(',') > -1;
             // valueDisplayed is the number in the display_value string, used in setupTouchAnimate
             datapoint.valueDisplayed = parseFloat(datapoint.display_value.replace(',','').match(valueRegex)[2]);
+            
             datapoint.decimalPlaces = self.getDecimalPlaces(datapoint.valueDisplayed);
           } else {
             datapoint.valPrefix = datapoint.value > 0 ? '' : '-';
@@ -275,7 +279,7 @@ Element providing solution to no problem in particular.
             .attr("x", function(){ return self.valuePosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
-            .text(function(d){return self.valPrefix + d.value.toFixed(self.decimalPlaces) + self.valSuffix });
+            .text(function(d){return self.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.valSuffix });
           
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
@@ -374,13 +378,14 @@ Element providing solution to no problem in particular.
         // When a point is touched, update the display value and set the currentPos
         self.datapoints
           .on('down', function(d,i){
+
             self.currentPos.value = d.valueDisplayed;
             // self.currentPos.date = d.date;
             self.currentPos.label = d.label;
             self.currentPos.index = i;
             self.currentPos.lastValue = d.valueDisplayed;
             self.currentTip = self.tips.filter(function(d, i) { return i === self.currentPos.index; });
-            
+
             self._animateMarker = false; // Cancels the automated movement of marker
             self.marker.remove();
             
@@ -390,8 +395,8 @@ Element providing solution to no problem in particular.
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
-            self.displayValue.text(function(d){ return self.valPrefix + d.value + self.valSuffix;})
-            self.currentTip.text(function(d){ return self.valPrefix + self.currentPos.value + self.valSuffix;})
+            self.displayValue.text(function(d){ return self.valPrefix + self._addCommasToNum(d.value) + self.valSuffix;})
+            self.currentTip.text(function(d){ return self.valPrefix + self._addCommasToNum(self.currentPos.value) + self.valSuffix;})
 
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
@@ -443,9 +448,9 @@ Element providing solution to no problem in particular.
           self.currentPos.lastValue = y.invert(yPos);
           self.currentPos.value = y.invert(yPos);
           // Update display value
-          self.displayValue.text(function(d){return self.valPrefix + d.value.toFixed(self.decimalPlaces) + self.valSuffix;});
+          self.displayValue.text(function(d){return self.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.valSuffix;});
           self.currentTip
-            .text(function(d){return self.valPrefix + self.currentPos.value.toFixed(self.decimalPlaces) + self.valSuffix;})
+            .text(function(d){return self.valPrefix + self._addCommasToNum(self.currentPos.value.toFixed(self.decimalPlaces)) + self.valSuffix;})
             .attr('transform', 'translate('+d3.event.x+','+d3.event.y+')');
 
         } 
@@ -477,7 +482,7 @@ Element providing solution to no problem in particular.
             .tween('text', function(d){ 
                 var i = d3.interpolate(d.lastValue, d.value);
                 return function(t) {
-                  this.textContent = self.valPrefix + (i(t)).toFixed(self.decimalPlaces) + self.valSuffix;
+                  this.textContent = self.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.valSuffix;
                 };
             })
 
@@ -487,7 +492,7 @@ Element providing solution to no problem in particular.
             .tween('text', function(d){ 
                 var i = d3.interpolate(self.currentPos.lastValue, self.currentPos.value);
                 return function(t) {
-                  this.textContent = self.valPrefix + (i(t)).toFixed(self.decimalPlaces) + self.valSuffix;
+                  this.textContent = self.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.valSuffix;
                 };
             })
 
@@ -495,6 +500,9 @@ Element providing solution to no problem in particular.
         }   
         self.datapoints.call(drag);
         self.circles.call(drag);
+      },
+      _addCommasToNum: function(num){
+        return this._displayCommas ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : num;
       },
       /**
        * _moveMarker sets the marker in motion to slide through each point in the line graph
@@ -554,7 +562,7 @@ Element providing solution to no problem in particular.
                       .tween('text', function(){
                           var i = d3.interpolate(data[d.index-1].value, data[d.index].value);
                           return function(t) {
-                            this.textContent = self.valPrefix + i(t).toFixed(self.decimalPlaces) + self.valSuffix;
+                            this.textContent = self.valPrefix + self._addCommasToNum(i(t).toFixed(self.decimalPlaces)) + self.valSuffix;
                           };
                       })
 
