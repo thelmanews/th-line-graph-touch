@@ -54,10 +54,10 @@ Element providing solution to no problem in particular.
 
     Polymer({
       chartData: [
-            {"label": "Q1 2014", "value": 104, "display_value": "$104"},
-            {"label": "Q2 2014", "value": 107, "display_value": "$107"},
-            {"label": "Q3 2014", "value": 110, "display_value": "$110"},
-            {"label": "Q4 2014", "value": 112, "display_value": "$112"}
+            {"label": "Q1 2014", "value": 104, "display_value": "$104000"},
+            {"label": "Q2 2014", "value": 107, "display_value": "$107000"},
+            {"label": "Q3 2014", "value": 110, "display_value": "$110000"},
+            {"label": "Q4 2014", "value": 112, "display_value": "$112000"}
           ],
       /**
        * fillArea determines whether the area under the line is filled or not
@@ -122,15 +122,18 @@ Element providing solution to no problem in particular.
        */
       _parseValues: function(){
         var self = this,
-            valueRegex = /(\D*)(\d*,*\.?\d*)(\D*)/, // Matchgroups: 1) prefix 2) value 3) suffix
+            valueRegex = /(\D*)(\d*\.?\d*)(\D*)/, // Matchgroups: 1) prefix 2) value 3) suffix
             dataLength = self.chartData.length;
             
+
         // Split display value into pieces to separate out suffix/prefix and detect decimal places    
         for (var i=0; i<dataLength; i++){
           var datapoint = self.chartData[i];
           if (datapoint.display_value){
             datapoint.valPrefix = datapoint.display_value.replace(',','').match(valueRegex)[1];
             datapoint.valSuffix = datapoint.display_value.replace(',','').match(valueRegex)[3];
+            // If commas are given in any display value, apply them across the board when needed by setting this property true
+            self._displayCommas = self._displayCommas || datapoint.display_value.indexOf(',') > -1; 
             // valueDisplayed is the number in the display_value string, used in setupTouchAnimate
             datapoint.valueDisplayed = parseFloat(datapoint.display_value.replace(',','').match(valueRegex)[2]);
             
@@ -498,8 +501,9 @@ Element providing solution to no problem in particular.
         self.datapoints.call(drag);
         self.circles.call(drag);
       },
-      _addCommasToNum: function(num){
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      // If commas are given in any display value, apply them across the board when needed by setting this property true
+        return this._displayCommas ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : num; 
+      _addCommasToNum: function(
       },
       /**
        * _moveMarker sets the marker in motion to slide through each point in the line graph
