@@ -145,10 +145,7 @@ Element providing solution to no problem in particular.
             datapoint.decimalPlaces = self.getDecimalPlaces(datapoint.value);
           }
 
-          if(i===0){
-            self.valPrefix = datapoint.valPrefix;
-            self.valSuffix = datapoint.valSuffix;
-          }
+      
         }
         self.decimalPlaces = d3.max(self.chartData, function(d){ return d.decimalPlaces});
 
@@ -171,7 +168,9 @@ Element providing solution to no problem in particular.
           value: data[0].valueDisplayed,
           label: data[0].label,
           // date: data[0].date,
-          index: 0
+          index: 0,
+          valPrefix: data[0].valPrefix,
+          valSuffix: data[0].valSuffix
         };
 
         // Create chart container
@@ -279,7 +278,7 @@ Element providing solution to no problem in particular.
             .attr("x", function(){ return self.valuePosition === "left" ? self.dims.margin.left : (width-self.dims.margin.left); })
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
-            .text(function(d){return self.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.valSuffix });
+            .text(function(d){return self.currentPos.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix });
           
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
@@ -384,6 +383,9 @@ Element providing solution to no problem in particular.
             self.currentPos.label = d.label;
             self.currentPos.index = i;
             self.currentPos.lastValue = d.valueDisplayed;
+            self.currentPos.valPrefix = d.valPrefix;
+            self.currentPos.valSuffix = d.valSuffix;
+            
             self.currentTip = self.tips.filter(function(d, i) { return i === self.currentPos.index; });
 
             self._animateMarker = false; // Cancels the automated movement of marker
@@ -395,8 +397,8 @@ Element providing solution to no problem in particular.
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
-            self.displayValue.text(function(d){ return self.valPrefix + self._addCommasToNum(d.value) + self.valSuffix;})
-            self.currentTip.text(function(d){ return self.valPrefix + self._addCommasToNum(self.currentPos.value) + self.valSuffix;})
+            self.displayValue.text(function(d){ return self.currentPos.valPrefix + self._addCommasToNum(d.value) + self.currentPos.valSuffix;})
+            self.currentTip.text(function(d){ return self.currentPos.valPrefix + self._addCommasToNum(self.currentPos.value) + self.currentPos.valSuffix;})
 
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
@@ -445,12 +447,20 @@ Element providing solution to no problem in particular.
             })
           
           // Update current position for display value
-          self.currentPos.lastValue = y.invert(yPos);
-          self.currentPos.value = y.invert(yPos);
+          self.currentPos.lastValue = Math.abs(y.invert(yPos)); // negatives are taken care of in prefix
+          self.currentPos.value = Math.abs(y.invert(yPos)); // negatives are taken care of in prefix
+
+          // Adjust prefix w/negative sign when necessary
+          if (y.invert(yPos) > 0 && self.currentPos.valPrefix.match(/^-/)){
+            self.currentPos.valPrefix = self.currentPos.valPrefix.slice(1);
+          } else if (y.invert(yPos) < 0 && !self.currentPos.valPrefix.match(/^-/)){
+            self.currentPos.valPrefix = '-' + self.currentPos.valPrefix;
+          }
+
           // Update display value
-          self.displayValue.text(function(d){return self.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.valSuffix;});
+          self.displayValue.text(function(d){return self.currentPos.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;});
           self.currentTip
-            .text(function(d){return self.valPrefix + self._addCommasToNum(self.currentPos.value.toFixed(self.decimalPlaces)) + self.valSuffix;})
+            .text(function(d){return self.currentPos.valPrefix + self._addCommasToNum(self.currentPos.value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;})
             .attr('transform', 'translate('+d3.event.x+','+d3.event.y+')');
 
         } 
@@ -463,6 +473,7 @@ Element providing solution to no problem in particular.
           
           // Reset current position
           self.currentPos.value = d.valueDisplayed;
+          self.currentPos.valPrefix = d.valPrefix;
 
           // Return fill area back to normal 
           if (self.fillArea){   
@@ -482,7 +493,7 @@ Element providing solution to no problem in particular.
             .tween('text', function(d){ 
                 var i = d3.interpolate(d.lastValue, d.value);
                 return function(t) {
-                  this.textContent = self.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.valSuffix;
+                  this.textContent = self.currentPos.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;
                 };
             })
 
@@ -492,7 +503,7 @@ Element providing solution to no problem in particular.
             .tween('text', function(d){ 
                 var i = d3.interpolate(self.currentPos.lastValue, self.currentPos.value);
                 return function(t) {
-                  this.textContent = self.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.valSuffix;
+                  this.textContent = self.currentPos.valPrefix + self._addCommasToNum((i(t)).toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;
                 };
             })
 
@@ -543,6 +554,8 @@ Element providing solution to no problem in particular.
                   self.currentPos.value = data[d.index].value;
                   // self.currentPos.date = data[d.index].date;
                   self.currentPos.label = data[d.index].label;
+                  self.currentPos.valPrefix = data[d.index].valPrefix;
+                  self.currentPos.valSuffix = data[d.index].valSuffix;
 
                   // Pulse effect when marker stops at a point
                   pulseEffect(this);
@@ -562,7 +575,16 @@ Element providing solution to no problem in particular.
                       .tween('text', function(){
                           var i = d3.interpolate(data[d.index-1].value, data[d.index].value);
                           return function(t) {
-                            this.textContent = self.valPrefix + self._addCommasToNum(i(t).toFixed(self.decimalPlaces)) + self.valSuffix;
+                            var value = Math.abs(i(t));
+
+                            // Adjust prefix w/negative sign when necessary
+                            if (i(t) > 0 && self.currentPos.valPrefix.match(/^-/)){
+                              self.currentPos.valPrefix = self.currentPos.valPrefix.slice(1);
+                            } else if (i(t) < 0 && !self.currentPos.valPrefix.match(/^-/)){
+                              self.currentPos.valPrefix = '-' + self.currentPos.valPrefix;
+                            }
+
+                            this.textContent = self.currentPos.valPrefix + self._addCommasToNum(value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;
                           };
                       })
 
