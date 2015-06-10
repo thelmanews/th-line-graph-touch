@@ -24,7 +24,7 @@ Element providing solution to no problem in particular.
       }
       
      .xLabel {
-        font-size: 0.7em;
+        /*font-size: 0.7em;*/
         /*font-weight: 600;*/
       }
       .xAxis path {
@@ -32,17 +32,20 @@ Element providing solution to no problem in particular.
         stroke-width: 2px;
       }
 
-      .tip {
-        /*font-weight: 400;*/
-      }
-
       .no-stroke {
         stroke: none;
+      }
+
+      .note {
+        font-size: 0.7em;
+        padding: 5px 25px;
+
       }
 
     </style>
 
     <svg id="chart"></svg> 
+    <div id="note"></div> 
   
   </template>
 
@@ -54,10 +57,10 @@ Element providing solution to no problem in particular.
 
     Polymer({
       chartData: [
-            {"label": "Q1 2014", "value": 104, "display_value": "$104"},
-            {"label": "Q2 2014", "value": 107, "display_value": "$107"},
-            {"label": "Q3 2014", "value": 110, "display_value": "$110"},
-            {"label": "Q4 2014", "value": 112, "display_value": "$112"}
+            {"label": "Q1 2014", "value": 104, "display_value": "$104", "note": "Sample note to describe data point."},
+            {"label": "Q2 2014", "value": 107, "display_value": "$107", "note": ""},
+            {"label": "Q3 2014", "value": 110, "display_value": "$110", "note": "Another sample note."},
+            {"label": "Q4 2014", "value": 112, "display_value": "$112", "note": ""}
           ],
       /**
        * fillArea determines whether the area under the line is filled or not
@@ -79,13 +82,12 @@ Element providing solution to no problem in particular.
        * @type {Boolean}
        */
       animateMarker: true,
+      displayNotes: false,
       init: function() {
         var self = this;
 
         // Set up dimensions
         self.dims = self.setupDimensions(self);
-
-        self.dims.height += self.dims.margin.bottom + self.dims.margin.top;
         self.dims.margin.right = 5; 
         self.dims.margin.left = 25;
         self.dims.width -= self.dims.margin.left + self.dims.margin.right;
@@ -93,9 +95,12 @@ Element providing solution to no problem in particular.
         // Set scales
         self._scaleBuilder();
 
-        // Extra values from display values
+        // Extract values from display values
         self._parseValues();
         
+        // Adjust height to take up entire space if note are not given
+        self.dims.height += self.displayNotes ? 0 : self.dims.margin.bottom + self.dims.margin.top;
+
         // Setup elements and sizes
         self._setupElements();
         self._setElementSizes();
@@ -124,11 +129,12 @@ Element providing solution to no problem in particular.
         var self = this,
             valueRegex = /(\D*)(\d*\.?\d*)(\D*)/, // Matchgroups: 1) prefix 2) value 3) suffix
             dataLength = self.chartData.length;
-            
 
         // Split display value into pieces to separate out suffix/prefix and detect decimal places    
         for (var i=0; i<dataLength; i++){
           var datapoint = self.chartData[i];
+          self.displayNotes = self.chartData[i].note ? true : self.displayNotes; // Set displayNotes to true when there's at least one note
+
           if (datapoint.display_value){
             datapoint.valPrefix = datapoint.display_value.replace(',','').match(valueRegex)[1];
             datapoint.valSuffix = datapoint.display_value.replace(',','').match(valueRegex)[3];
@@ -171,7 +177,8 @@ Element providing solution to no problem in particular.
           value: data[0].valueDisplayed,
           label: data[0].label,
           // date: data[0].date,
-          index: 0
+          index: 0,
+          note: data[0].note || ''
         };
 
         // Create chart container
@@ -225,6 +232,11 @@ Element providing solution to no problem in particular.
           .attr('opacity', function(){return self.tooltips ? 1 : 0})
           .style('fill', self.textColor);
 
+
+        self.note = d3.select(self.$.note)
+          .data([self.currentPos])
+          .attr("class", "note label no-stroke")
+          .html(function(d){return d.note;});
       },
       /**
        * _setElementSizes styles and sets starting position of all the elements in the chart
@@ -280,7 +292,11 @@ Element providing solution to no problem in particular.
             .attr("y", -(height - valueSize - self.dims.margin.top )) 
             .attr("font-size", valueSize) 
             .text(function(d){return self.valPrefix + self._addCommasToNum(d.value.toFixed(self.decimalPlaces)) + self.valSuffix });
-          
+
+          self.note
+            .attr("class", 'note label no-stroke')
+            .html(function(d){return d.note; });
+
           // Line data, starting state (raise style animation)
           self.startingLine = d3.svg.line()
             .x(function(d,i) { return x(d.label); })
@@ -382,6 +398,7 @@ Element providing solution to no problem in particular.
             self.currentPos.value = d.valueDisplayed;
             // self.currentPos.date = d.date;
             self.currentPos.label = d.label;
+            self.currentPos.note = d.note;
             self.currentPos.index = i;
             self.currentPos.lastValue = d.valueDisplayed;
             self.currentTip = self.tips.filter(function(d, i) { return i === self.currentPos.index; });
@@ -397,6 +414,7 @@ Element providing solution to no problem in particular.
 
             self.displayValue.text(function(d){ return self.valPrefix + self._addCommasToNum(d.value) + self.valSuffix;})
             self.currentTip.text(function(d){ return self.valPrefix + self._addCommasToNum(self.currentPos.value) + self.valSuffix;})
+            self.note.html(function(d){return d.note;});
 
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
@@ -453,6 +471,7 @@ Element providing solution to no problem in particular.
             .text(function(d){return self.valPrefix + self._addCommasToNum(self.currentPos.value.toFixed(self.decimalPlaces)) + self.valSuffix;})
             .attr('transform', 'translate('+d3.event.x+','+d3.event.y+')');
 
+          self.note.html(function(d){return d.note;});
         } 
 
         function dragEnd(d){
@@ -543,6 +562,8 @@ Element providing solution to no problem in particular.
                   self.currentPos.value = data[d.index].value;
                   // self.currentPos.date = data[d.index].date;
                   self.currentPos.label = data[d.index].label;
+                  self.currentPos.note = data[d.index].note;
+                  self.note.html(function(d){return d.note;});
 
                   // Pulse effect when marker stops at a point
                   pulseEffect(this);
@@ -565,6 +586,8 @@ Element providing solution to no problem in particular.
                             this.textContent = self.valPrefix + self._addCommasToNum(i(t).toFixed(self.decimalPlaces)) + self.valSuffix;
                           };
                       })
+
+                    
 
                     return transition(markerPath, 1500);  // Recursively call function for next transition
                   }
@@ -624,6 +647,7 @@ Element providing solution to no problem in particular.
         self.currentPos = { 
           value: self.chartData[0].value,
           label: self.chartData[0].label,
+          note: self.chartData[0].note,
           index: 0
         };
       },
@@ -796,8 +820,9 @@ Element providing solution to no problem in particular.
         // Reset current position of marker
         self._resetCurrentPosition();
 
-        // Reset display value data to new currentPos
+        // Reset display value & note data to new currentPos
         self.displayValue.data([self.currentPos]);
+        self.note.data([self.currentPos]).html(function(d){console.log(d.note); return d.note; });
         
         // Reset marker
         self._animateMarker = false;
