@@ -228,7 +228,7 @@ Element providing solution to no problem in particular.
           .enter().append('text')
           .attr('class', 'tip label fill-foreground')
           .attr('text-anchor', 'middle')
-          .attr('opacity', function(){return self.tooltips ? 1 : 0})
+          .attr('opacity', 0)
           .style('fill', self.textColor);
 
 
@@ -374,6 +374,7 @@ Element providing solution to no problem in particular.
               self.circles
                 .attr('stroke-width', function(d,i){ return i === data.index-1 ? 3 : 1})
                 .classed('stroke-foreground', function(d,i){ return i === data.index-1 ? true : false});
+
               self._animateMarker = false;
             })
             .on('up', this.remove);
@@ -393,7 +394,6 @@ Element providing solution to no problem in particular.
         // When a point is touched, update the display value and set the currentPos
         self.datapoints
           .on('down', function(d,i){
-
             self.currentPos.value = d.valueDisplayed;
             // self.currentPos.date = d.date;
             self.currentPos.label = d.label;
@@ -414,12 +414,19 @@ Element providing solution to no problem in particular.
               .classed('stroke-foreground', function(d,i){ return i === self.currentPos.index ? true : false})
               .style('stroke', function(d,i){ return i === self.currentPos.index ? self.textColor : self.color});
 
+            // Update dispay values and notes
             self.displayValue.text(function(d){ return self.currentPos.valPrefix + self._addCommasToNum(d.value) + self.currentPos.valSuffix;})
             self.currentTip.text(function(d){ return self.currentPos.valPrefix + self._addCommasToNum(self.currentPos.value) + self.currentPos.valSuffix;})
             self.note.html(function(d){return d.note;});
 
+            // Record starting position of circle
             self.startY = -parseInt(d3.select(this).select('.circle').attr('cy'));
             self.startX = -parseInt(d3.select(this).select('.circle').attr('cx'));
+
+            // Make all tooltips visible if option is set
+            if (self.tooltips){
+              self.tips.attr('opacity', 1);
+            }
           })
 
         // Drag and drag end functions for points
@@ -578,8 +585,21 @@ Element providing solution to no problem in particular.
                   self.currentPos.note = data[d.index].note;
                   self.note.html(function(d){return d.note;});
 
+                  // Fade current tooltip in if option is set
+                  if (self.tooltips){
+                      var currentTip = self.tips.filter(function(tooltipDatapoint, tooltipIndex){ 
+                        return tooltipIndex === d.index;
+                      })
+
+                      currentTip
+                        .transition()
+                        .duration(1200)
+                        .attr('opacity', 1);
+                  }
+
                   // Pulse effect when marker stops at a point
                   pulseEffect(this);
+
 
                   // Check if it has reached the end
                   if (d.index == data.length-1 || !self._animateMarker){
@@ -591,25 +611,25 @@ Element providing solution to no problem in particular.
                     markerPath.attr('d', markerLine([data[d.index],data[d.index+1]])); // Update segment
                     d.index++; // Increment counter
 
-                    // Animate the value
-                    self.displayValue.transition().delay(1500).duration(1000)
-                      .tween('text', function(){
-                          var i = d3.interpolate(data[d.index-1].value, data[d.index].value);
-                          return function(t) {
-                            var value = Math.abs(i(t));
+                    if (!self.tooltips){
+                      // Animate the value
+                      self.displayValue.transition().delay(1500).duration(1000)
+                        .tween('text', function(){
+                            var i = d3.interpolate(data[d.index-1].value, data[d.index].value);
+                            return function(t) {
+                              var value = Math.abs(i(t));
 
-                            // Adjust prefix w/negative sign when necessary
-                            if (i(t) > 0 && self.currentPos.valPrefix.match(/^-/)){
-                              self.currentPos.valPrefix = self.currentPos.valPrefix.slice(1);
-                            } else if (i(t) < 0 && !self.currentPos.valPrefix.match(/^-/)){
-                              self.currentPos.valPrefix = '-' + self.currentPos.valPrefix;
-                            }
+                              // Adjust prefix w/negative sign when necessary
+                              if (i(t) > 0 && self.currentPos.valPrefix.match(/^-/)){
+                                self.currentPos.valPrefix = self.currentPos.valPrefix.slice(1);
+                              } else if (i(t) < 0 && !self.currentPos.valPrefix.match(/^-/)){
+                                self.currentPos.valPrefix = '-' + self.currentPos.valPrefix;
+                              }
 
-                            this.textContent = self.currentPos.valPrefix + self._addCommasToNum(value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;
-                          };
-                      })
-
-                    
+                              this.textContent = self.currentPos.valPrefix + self._addCommasToNum(value.toFixed(self.decimalPlaces)) + self.currentPos.valSuffix;
+                            };
+                        })
+                    }
 
                     return transition(markerPath, 1500);  // Recursively call function for next transition
                   }
@@ -709,16 +729,14 @@ Element providing solution to no problem in particular.
             .attr('r', 5);
 
         if(self.tooltips){
-          // Show tooltips
           self._showTooltips();
-        } else {
-          // Show marker and animate
-          self.marker
-            .transition().delay(750).duration(500)
-              .attr('r', 5)
-              .each('end', self._moveMarker());
-        }
+        } 
 
+        // Show marker and animate
+        self.marker
+          .transition().delay(750).duration(500)
+            .attr('r', 5)
+            .each('end', self._moveMarker());
       },
       _showTooltips: function(){
             var self = this,
@@ -745,12 +763,11 @@ Element providing solution to no problem in particular.
             self.tips          
               .text( function(d){return d.display_value ? d.display_value : ""; })
               .attr("x", function(d) { return  x(d.label); })
-              .attr("y", function(d) { return -y(d.value) - 15; })
-              .attr('opacity', 0)
+              .attr("y", function(d) { return -y(d.value) - 18; })
               .transition()
-              .delay(900)
-              .duration(300)
-              .attr('opacity', 1);
+                .delay(900)
+                .duration(300)
+                .attr('opacity', self.animateMarker ? 0 : 1); // If marker animates, let tooltips display one by one, otherwise display them all
           },
       /**
        * resize is called when chartHeight or chartWidth are changed, and adjusts the elements sizes and scales accordingly
