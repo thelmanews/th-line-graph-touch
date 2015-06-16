@@ -254,7 +254,7 @@ Element providing solution to no problem in particular.
           // Set size of svg
           self.svg
             .attr("width", self.dims.width+ self.dims.margin.right + self.dims.margin.left) 
-            .attr("height", self.dims.height); 
+            .attr("height", self.dims.height + self.dims.margin.bottom); 
 
           // Position g
           self.g
@@ -264,7 +264,7 @@ Element providing solution to no problem in particular.
         // Create x-axis
         var xAxis = d3.svg.axis()
           .scale(x)
-          .tickSize(0)
+          .tickSize(5)
           .orient("bottom");
 
           self.xAxis
@@ -275,7 +275,7 @@ Element providing solution to no problem in particular.
           self.xLabels = self.g.selectAll('.axis')
             .selectAll('text')
             .attr('class', 'label no-stroke xLabel')
-            .attr('y', 5)
+            .attr('y', 10)
             .style('fill', self.textColor);
 
           // Set display value and it's position/size
