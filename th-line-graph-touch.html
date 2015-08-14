@@ -115,7 +115,7 @@ Element providing solution to no problem in particular.
         self.minValue = self.yAxisMin != "" && (!isNaN(parseInt(self.yAxisMin))) ? self.yAxisMin : self.getBoundaryValue(self, "value", d3.min);
 
         // Set y-scale
-        self.y = d3.scale.linear().domain([self.minValue, self.maxValue]).range([self.dims.margin.left, 
+        self.y = d3.scale.linear().domain([self.minValue, self.maxValue]).range([0, 
                 (self.dims.height-(self.dims.margin.top + self.dims.margin.bottom))]);
         
         // Set x-scale
