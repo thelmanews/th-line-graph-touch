@@ -762,16 +762,21 @@ Element providing solution to no problem in particular.
             if (firstValueLength > 4) { 
               self.tips
                 .attr('transform',function(d,i){
-                  var xOffset = i === 0 ? (firstValueLength - 4)*5 + parseInt(d.yOffset) : 0;
-                  var yOffset = parseInt(d.yOffset);
+                  var xOffsetInitial = parseInt(d.xOffset) || 0;
+                  var xOffset = i === 0 ? (firstValueLength - 4)*5 + xOffsetInitial : 0;
+                  var yOffset = parseInt(d.yOffset) || 0;
                   return "translate("+xOffset+","+ yOffset+")";
                 });
             }
 
             self.tips          
               .text( function(d){return d.display_value ? d.display_value : ""; })
-              .attr("x", function(d) { return  x(d.label) + parseInt(d.xOffset); })
-              .attr("y", function(d) { return -y(d.value) - 18 - parseInt(d.yOffset); })
+              .attr("x", function(d) { 
+                var xOffset = parseInt(d.xOffset) || 0;
+                return  x(d.label) + xOffset })
+              .attr("y", function(d) { 
+                var yOffset = parseInt(d.yOffset) || 0;
+                return -y(d.value) - 18 - yOffset; })
               .transition()
                 .delay(900)
                 .duration(300)
