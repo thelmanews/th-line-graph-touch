@@ -13,7 +13,7 @@ Element providing solution to no problem in particular.
 @status alpha
 @homepage http://polymerlabs.github.io/th-line-graph-touch
 -->
-<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="fillArea animateStyle textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input tooltips">
+<polymer-element name="th-line-graph-touch" extends="th-d3-chart" attributes="fillArea animateStyle textColor yAxisMax yAxisMin valueSize valuePosition animateMarker input tooltips xAxisAtZero">
 
   <template>
     <core-style ref="theme"> </core-style>
@@ -83,7 +83,7 @@ Element providing solution to no problem in particular.
        */
       animateMarker: true,
       displayNotes: false,
-      xAxisAtZero: true, // when the y-scale does not begin at 0, setting this to true, will force the xAxis to be at 0, when by default it is at the min yAxis value
+      xAxisAtZero: false, // when the y-scale does not begin at 0, setting this to true, will force the xAxis to be at 0, when by default it is at the min yAxis value
       init: function() {
         var self = this;
 
